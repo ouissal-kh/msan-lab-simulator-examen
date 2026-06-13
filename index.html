@@ -1,0 +1,3301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MSAN Lab Simulator — ITTA Practical Trainer v4.0</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;500;600&display=swap');
+
+  :root {
+    --green: #00ff41;
+    --green-dim: #00b32d;
+    --green-dark: #003d0f;
+    --green-glow: rgba(0,255,65,0.15);
+    --amber: #ffb000;
+    --red: #ff3333;
+    --cyan: #00e5ff;
+    --bg: #0a0a0a;
+    --bg2: #0d0d0d;
+    --panel: #111111;
+    --border: #1a2e1a;
+    --border-bright: #00ff4133;
+    --text-dim: #336633;
+    --scanline: rgba(0,255,65,0.03);
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--green);
+    font-family: 'Share Tech Mono', monospace;
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  body::after {
+    content:'';
+    position:fixed;
+    top:0; left:0; right:0; bottom:0;
+    background: repeating-linear-gradient(0deg, transparent, transparent 2px, var(--scanline) 2px, var(--scanline) 4px);
+    pointer-events:none;
+    z-index:9999;
+  }
+
+  /* ── CREDENTIALS STATUS BAR ── */
+  #creds-bar {
+    background: #0f0800;
+    border-bottom: 1px solid #5a3d00;
+    padding: 5px 16px;
+    display: none;
+    align-items: center;
+    gap: 24px;
+    flex-shrink: 0;
+    font-size: 10px;
+    color: var(--amber);
+    font-family: 'Share Tech Mono', monospace;
+  }
+  #creds-bar.visible { display: flex; }
+  #creds-bar .cb-label { color: #7a5a00; font-size: 9px; text-transform: uppercase; letter-spacing: 1px; }
+  #creds-bar .cb-val { color: var(--amber); font-weight: bold; }
+  #creds-bar .cb-group { display: flex; gap: 6px; align-items: center; }
+  #creds-bar .cb-sep { color: #3a2800; }
+
+  /* ── TOP BAR ── */
+  #topbar {
+    background: #0a0f0a;
+    border-bottom: 1px solid var(--border-bright);
+    padding: 6px 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+    position: relative;
+    flex-wrap: wrap;
+  }
+  #topbar::after {
+    content:'';
+    position:absolute;
+    bottom:0; left:0; right:0;
+    height:1px;
+    background: linear-gradient(90deg, transparent, var(--green), transparent);
+    opacity:0.4;
+  }
+  .logo {
+    font-family: 'Orbitron', monospace;
+    font-size: 12px;
+    font-weight: 900;
+    color: var(--green);
+    letter-spacing: 3px;
+    text-shadow: 0 0 10px var(--green);
+    white-space: nowrap;
+  }
+  .logo span { color: var(--amber); }
+
+  .top-status { display:flex; gap:8px; align-items:center; font-size:10px; color:var(--green-dim); }
+  .status-dot { width:6px; height:6px; border-radius:50%; background:var(--green); box-shadow:0 0 6px var(--green); animation:blink 2s infinite; }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+  /* TP Selector buttons */
+  .tp-group {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+    position: relative;
+  }
+  .tp-btn {
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 700;
+    font-size: 11px;
+    letter-spacing: 1px;
+    padding: 4px 10px;
+    border: 1px solid #1a5a1a;
+    background: transparent;
+    color: var(--green-dim);
+    cursor: pointer;
+    text-transform: uppercase;
+    transition: all 0.2s;
+    position: relative;
+  }
+  .tp-btn:hover, .tp-btn.active {
+    border-color: var(--green);
+    color: var(--green);
+    background: var(--green-glow);
+    box-shadow: 0 0 8px var(--green-glow);
+  }
+  .tp-dropdown {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    background: #0a100a;
+    border: 1px solid var(--border-bright);
+    z-index: 500;
+    min-width: 200px;
+    padding: 4px 0;
+    margin-top: 2px;
+  }
+  .tp-dropdown.open { display: block; }
+  .tp-dd-item {
+    padding: 6px 12px;
+    font-size: 10px;
+    color: var(--green-dim);
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.15s;
+  }
+  .tp-dd-item:hover { background: var(--green-dark); color: var(--green); }
+  .tp-dd-item b { color: var(--amber); }
+
+  .variant-btn {
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 700;
+    font-size: 10px;
+    padding: 3px 8px;
+    border: 1px solid #5a3d00;
+    background: transparent;
+    color: var(--amber);
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .variant-btn:hover { border-color: var(--amber); box-shadow: 0 0 6px rgba(255,176,0,0.2); }
+  .variant-btn.b-active { background: rgba(255,176,0,0.1); }
+
+  .top-right { margin-left:auto; display:flex; gap:6px; align-items:center; flex-wrap: wrap; }
+  .btn {
+    font-family: 'Rajdhani', sans-serif;
+    font-weight:600;
+    font-size:11px;
+    letter-spacing:1px;
+    padding: 4px 10px;
+    border: 1px solid var(--green-dim);
+    background: transparent;
+    color: var(--green);
+    cursor: pointer;
+    text-transform: uppercase;
+    transition: all 0.2s;
+    position: relative;
+    overflow: hidden;
+  }
+  .btn::before { content:''; position:absolute; inset:0; background:var(--green-glow); transform:scaleX(0); transform-origin:left; transition:transform 0.2s; }
+  .btn:hover::before { transform:scaleX(1); }
+  .btn:hover { border-color:var(--green); box-shadow:0 0 8px var(--green-glow); }
+  .btn.amber { border-color:#5a3d00; color:var(--amber); }
+  .btn.amber:hover { border-color:var(--amber); box-shadow:0 0 8px rgba(255,176,0,0.2); }
+  .btn.red { border-color:#3d0000; color:var(--red); }
+  .btn.red:hover { border-color:var(--red); }
+
+  /* ── MAIN LAYOUT ── */
+  #main { display:flex; flex:1; overflow:hidden; }
+
+  /* ── SIDE PANEL ── */
+  #sidepanel {
+    width: 260px; min-width: 260px;
+    background: var(--panel);
+    border-right: 1px solid var(--border);
+    display: flex; flex-direction: column; overflow: hidden;
+    transition: width 0.3s;
+  }
+  #sidepanel.collapsed { width:0; min-width:0; overflow:hidden; }
+
+  .panel-tabs { display:flex; border-bottom:1px solid var(--border); flex-shrink:0; }
+  .ptab {
+    flex:1; padding:8px 4px; text-align:center;
+    font-size:9px; letter-spacing:1px; color:var(--text-dim);
+    cursor:pointer; text-transform:uppercase;
+    border-bottom:2px solid transparent; transition:all 0.2s;
+    font-family:'Rajdhani',sans-serif; font-weight:600;
+  }
+  .ptab.active { color:var(--green); border-bottom-color:var(--green); }
+  .ptab:hover { color:var(--green-dim); }
+
+  .panel-content { flex:1; overflow-y:auto; padding:8px; }
+  .panel-content::-webkit-scrollbar { width:3px; }
+  .panel-content::-webkit-scrollbar-thumb { background:var(--green-dark); }
+
+  .panel-section { margin-bottom:14px; }
+  .panel-section h3 {
+    font-family:'Rajdhani',sans-serif; font-weight:600;
+    font-size:10px; letter-spacing:2px; color:var(--amber);
+    text-transform:uppercase; margin-bottom:6px;
+    padding-bottom:3px; border-bottom:1px solid #1a1a00;
+  }
+  .cmd-item {
+    font-size:10px; color:var(--green-dim);
+    padding:3px 4px; border-radius:2px; cursor:pointer;
+    line-height:1.5; transition:background 0.15s;
+  }
+  .cmd-item:hover { background:var(--green-dark); color:var(--green); }
+  .cmd-item code { color:var(--green); font-size:9px; }
+
+  #exercise-box {
+    background:#0a0f0a; border:1px solid #1a2e1a;
+    border-radius:2px; padding:10px; margin-bottom:8px;
+    font-size:10px; line-height:1.7;
+  }
+  .ex-title { font-family:'Orbitron',monospace; font-size:9px; color:var(--amber); letter-spacing:2px; margin-bottom:6px; }
+  .ex-task { color:#88cc88; margin-bottom:4px; }
+  .ex-task::before { content:'▸ '; color:var(--amber); }
+
+  #score-box { text-align:center; padding:6px; font-family:'Orbitron',monospace; font-size:11px; color:var(--green); }
+  .score-num { font-size:22px; font-weight:900; }
+
+  .state-item { font-size:9px; color:var(--green-dim); padding:2px 0; border-bottom:1px solid #0d0d0d; }
+  .state-item span { color:var(--cyan); }
+
+  #hints-box { background:#050f05; border:1px solid var(--green-dark); padding:8px; font-size:10px; color:#559955; line-height:1.6; }
+
+  /* ── TERMINAL ── */
+  #terminal-wrap {
+    flex:1; display:flex; flex-direction:column;
+    overflow:hidden; position:relative; background:var(--bg2);
+  }
+  #terminal-header {
+    background:#0a0f0a; border-bottom:1px solid var(--border);
+    padding:5px 12px; display:flex; align-items:center;
+    gap:8px; font-size:10px; color:var(--green-dim); flex-shrink:0;
+  }
+  .term-title { font-family:'Orbitron',monospace; font-size:9px; letter-spacing:2px; color:var(--green); opacity:0.7; }
+  .term-info { margin-left:auto; display:flex; gap:12px; font-size:9px; }
+  .term-info span { color:var(--text-dim); }
+  .term-info b { color:var(--green-dim); }
+
+  #output { flex:1; overflow-y:auto; padding:12px 14px; font-size:12px; line-height:1.6; word-break:break-word; }
+  #output::-webkit-scrollbar { width:4px; }
+  #output::-webkit-scrollbar-thumb { background:#003300; }
+
+  .line { margin:0; white-space:pre-wrap; }
+  .line.prompt { color:var(--green); }
+  .line.output { color:#88cc88; }
+  .line.error { color:var(--red); }
+  .line.warn { color:var(--amber); }
+  .line.info { color:var(--cyan); }
+  .line.dim { color:var(--text-dim); }
+  .line.bold { color:#aaffaa; font-weight:bold; }
+  .line.table-header { color:var(--amber); font-weight:bold; }
+  .line.success { color:#00ff99; }
+
+  #input-area {
+    border-top:1px solid var(--border);
+    padding:8px 14px; display:flex; align-items:center;
+    gap:6px; background:#0a0a0a; flex-shrink:0;
+  }
+  #prompt-label { color:var(--green); font-size:12px; white-space:nowrap; text-shadow:0 0 6px rgba(0,255,65,0.4); }
+  #cmd-input {
+    flex:1; background:transparent; border:none; outline:none;
+    color:var(--green); font-family:'Share Tech Mono',monospace;
+    font-size:12px; caret-color:var(--green);
+  }
+  #cmd-input[type="password"] { letter-spacing: 3px; }
+  #cursor-block { width:8px; height:14px; background:var(--green); opacity:0.8; animation:cur 1s step-end infinite; }
+  @keyframes cur { 0%,100%{opacity:0.8} 50%{opacity:0} }
+
+  #autocomplete {
+    position:absolute; bottom:50px; left:14px;
+    background:#0a100a; border:1px solid var(--border-bright);
+    padding:4px 0; z-index:100; min-width:220px; display:none;
+  }
+  .ac-item { padding:3px 10px; font-size:11px; color:var(--green-dim); cursor:pointer; }
+  .ac-item:hover, .ac-item.selected { background:var(--green-dark); color:var(--green); }
+
+  /* ── MODAL ── */
+  #modal-overlay {
+    display:none; position:fixed; inset:0;
+    background:rgba(0,0,0,0.85); z-index:1000;
+    align-items:center; justify-content:center;
+  }
+  #modal-overlay.show { display:flex; }
+  #modal {
+    background:#0a0f0a; border:1px solid var(--green);
+    box-shadow:0 0 40px rgba(0,255,65,0.2);
+    width:580px; max-width:95vw; padding:24px; position:relative;
+    max-height: 90vh; display: flex; flex-direction: column;
+  }
+  #modal h2 { font-family:'Orbitron',monospace; font-size:13px; letter-spacing:3px; color:var(--amber); margin-bottom:16px; flex-shrink:0; }
+  #modal-body { overflow-y: auto; flex:1; }
+  #modal-body::-webkit-scrollbar { width: 3px; }
+  #modal-body::-webkit-scrollbar-thumb { background: var(--green-dark); }
+  .modal-task {
+    background:#050f05; border-left:3px solid var(--green);
+    padding:10px 14px; margin-bottom:8px; font-size:11px;
+    color:#aaffaa; line-height:1.7;
+  }
+  .modal-task b { color:var(--amber); }
+  .modal-close { position:absolute; top:12px; right:12px; background:transparent; border:none; color:var(--red); font-size:18px; cursor:pointer; }
+  .modal-btns { display:flex; gap:8px; margin-top:16px; flex-shrink:0; }
+
+  #correction-box {
+    background:#050f05; border:1px solid var(--border);
+    padding:10px; margin-top:10px; font-size:10px;
+    max-height:300px; overflow-y:auto;
+  }
+  .corr-ok { color:#00ff99; }
+  .corr-miss { color:var(--red); }
+  .corr-extra { color:var(--amber); }
+
+  @media (max-width:700px) {
+    #sidepanel { display:none; }
+    #topbar { padding:4px 8px; }
+    .logo { font-size:10px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- CREDENTIALS BAR -->
+<div id="creds-bar">
+  <div class="cb-group"><span class="cb-label">USER</span><span class="cb-sep">│</span><span class="cb-val" id="cb-user">—</span></div>
+  <div class="cb-group"><span class="cb-label">PASSWORD</span><span class="cb-sep">│</span><span class="cb-val" id="cb-pass">—</span></div>
+  <div class="cb-group"><span class="cb-label">PROFILE</span><span class="cb-sep">│</span><span class="cb-val" id="cb-profile">—</span></div>
+  <div class="cb-group"><span class="cb-label">LEVEL</span><span class="cb-sep">│</span><span class="cb-val" id="cb-level">—</span></div>
+  <div class="cb-group"><span class="cb-label">DEVICE</span><span class="cb-sep">│</span><span class="cb-val" id="cb-device">MSAN_A</span></div>
+</div>
+
+<!-- TOP BAR -->
+<div id="topbar">
+  <div class="logo">MSAN<span>LAB</span> SIM</div>
+  <div class="top-status"><div class="status-dot"></div><span id="conn-status">CONNECTED</span></div>
+  <div class="top-status"><span id="clock"></span></div>
+
+  <!-- TP Selector -->
+  <div class="tp-group" id="tp-grp-1">
+    <button class="tp-btn" onclick="toggleTPMenu(1)">TP1 ▾</button>
+    <div class="tp-dropdown" id="tp-dd-1">
+      <div class="tp-dd-item" onclick="selectExercise(1,'A')"><b>1A</b> — MSAN_A: Alarms &amp; Boards</div>
+      <div class="tp-dd-item" onclick="selectExercise(1,'B')"><b>1B</b> — MSAN_A: User Management</div>
+      <div class="tp-dd-item" onclick="selectExercise(1,'C')"><b>1C</b> — MSAN_A: Board Management</div>
+      <div class="tp-dd-item" onclick="selectExercise(1,'D')"><b>1D</b> — MSAN_B: Variant (alarms/users/boards)</div>
+    </div>
+  </div>
+  <div class="tp-group" id="tp-grp-2">
+    <button class="tp-btn" onclick="toggleTPMenu(2)">TP2 ▾</button>
+    <div class="tp-dropdown" id="tp-dd-2">
+      <div class="tp-dd-item" onclick="selectExercise(2,'A')"><b>2A</b> — MSAN_A: VLAN Stacking</div>
+      <div class="tp-dd-item" onclick="selectExercise(2,'B')"><b>2B</b> — MSAN_A: VLAN QinQ</div>
+      <div class="tp-dd-item" onclick="selectExercise(2,'C')"><b>2C</b> — MSAN_B: VLAN Stacking</div>
+      <div class="tp-dd-item" onclick="selectExercise(2,'D')"><b>2D</b> — MSAN_B: VLAN QinQ</div>
+    </div>
+  </div>
+  <div class="tp-group" id="tp-grp-3">
+    <button class="tp-btn" onclick="toggleTPMenu(3)">TP3 ▾</button>
+    <div class="tp-dropdown" id="tp-dd-3">
+      <div class="tp-dd-item" onclick="selectExercise(3,'A')"><b>3A</b> — MSAN_A: VoIP Upstream VLAN</div>
+      <div class="tp-dd-item" onclick="selectExercise(3,'B')"><b>3B</b> — MSAN_A: Internal Phone H.248</div>
+      <div class="tp-dd-item" onclick="selectExercise(3,'C')"><b>3C</b> — MSAN_A: VoIP Cleanup (undo)</div>
+      <div class="tp-dd-item" onclick="selectExercise(3,'D')"><b>3D</b> — MSAN_B: VoIP Full</div>
+    </div>
+  </div>
+  <div class="tp-group" id="tp-grp-4">
+    <button class="tp-btn" onclick="toggleTPMenu(4)">TP4 ▾</button>
+    <div class="tp-dropdown" id="tp-dd-4">
+      <div class="tp-dd-item" onclick="selectExercise(4,'A')"><b>4A</b> — MSAN_A: Full ADSL Setup</div>
+      <div class="tp-dd-item" onclick="selectExercise(4,'B')"><b>4B</b> — MSAN_A: Line Verification</div>
+      <div class="tp-dd-item" onclick="selectExercise(4,'C')"><b>4C</b> — MSAN_B: Full ADSL Setup</div>
+    </div>
+  </div>
+
+  <div class="tp-group" id="tp-grp-ex">
+    <button class="tp-btn" style="border-color:#ff6600;color:#ff9944;" onclick="toggleTPMenu('ex')">EXAM ▾</button>
+    <div class="tp-dropdown" id="tp-dd-ex">
+      <div class="tp-dd-item" onclick="selectExercise('EX','1A')"><b>EX1A</b> — VLAN Stacking (Exam 1)</div>
+      <div class="tp-dd-item" onclick="selectExercise('EX','1B')"><b>EX1B</b> — Service ADSL VLAN 40 (Exam 1)</div>
+      <div class="tp-dd-item" onclick="selectExercise('EX','2A')"><b>EX2A</b> — User-Profile + Utilisateur (Exam 2)</div>
+      <div class="tp-dd-item" onclick="selectExercise('EX','2B')"><b>EX2B</b> — Service VoIP VLAN 420 (Exam 2)</div>
+      <div class="tp-dd-item" onclick="selectExercise('EX','3A')"><b>EX3A</b> — Communication abonnés H248 600 (Exam 3)</div>
+      <div class="tp-dd-item" onclick="selectExercise('EX','3B')"><b>EX3B</b> — Service ADSL VLAN 60 (Exam 3)</div>
+      <div class="tp-dd-item" onclick="selectExercise('EX','4A')"><b>EX4A</b> — Service ADSL VLAN 80 (Exam 4)</div>
+      <div class="tp-dd-item" onclick="selectExercise('EX','4B')"><b>EX4B</b> — QinQ VLAN 220 (Exam 4)</div>
+      <div class="tp-dd-item" onclick="selectExercise('EX','4C')"><b>EX4C</b> — Utilisateur + VoIP VLAN 410 (Exam 4)</div>
+      <div class="tp-dd-item" onclick="selectExercise('EX','5A')"><b>EX5A</b> — Utilisateur djillali1 + VoIP VLAN 430 (Exam 5)</div>
+      <div class="tp-dd-item" style="border-top:1px solid #1a2e1a;margin-top:4px;padding-top:6px;color:#669966;font-size:9px;letter-spacing:1px;cursor:default;">── ITTA EXAM TYPE ──</div>
+      <div class="tp-dd-item" onclick="selectExercise('ITTA2A','1')"><b>2&#x22;A-1</b> — Stacking VLAN 200 / interne 120</div>
+      <div class="tp-dd-item" onclick="selectExercise('ITTA2A','2')"><b>2&#x22;A-2</b> — Service ADSL VLAN 101</div>
+      <div class="tp-dd-item" onclick="selectExercise('ITTA2A','3')"><b>2&#x22;A-3</b> — TP1: User abdelhamid + Carte H804ASRB</div>
+      <div class="tp-dd-item" onclick="selectExercise('ITTA3A','1')"><b>3&#x22;A-1</b> — QinQ VLAN 224 / interne 30</div>
+      <div class="tp-dd-item" onclick="selectExercise('ITTA3A','2')"><b>3&#x22;A-2</b> — Comm. interne H248 (ASPB+CAME)</div>
+      <div class="tp-dd-item" onclick="selectExercise('ITTA3A','3')"><b>3&#x22;A-3</b> — Service ADSL VLAN 100</div>
+      <div class="tp-dd-item" onclick="selectExercise('ITTA3A','4')"><b>3&#x22;A-4</b> — Service VoIP VLAN 304</div>
+      <div class="tp-dd-item" onclick="selectExercise('ITTA4A','1')"><b>4&#x22;A-1</b> — TP1: User abderrahmane + Carte H80BCAME</div>
+      <div class="tp-dd-item" onclick="selectExercise('ITTA4A','2')"><b>4&#x22;A-2</b> — Service ADSL VLAN 82</div>
+      <div class="tp-dd-item" onclick="selectExercise('ITTA5A','1')"><b>5&#x22;A-1</b> — Stacking VLAN 204 / interne 80</div>
+      <div class="tp-dd-item" onclick="selectExercise('ITTA5A','2')"><b>5&#x22;A-2</b> — Service ADSL VLAN 81</div>
+      <div class="tp-dd-item" onclick="selectExercise('ITTA5A','3')"><b>5&#x22;A-3</b> — TP1: User abdenour + Carte H80BCVME</div>
+    </div>
+  </div>
+
+  <div class="top-right">
+    <button class="variant-btn" id="variant-toggle" onclick="toggleVariant()">⇄ MSAN_A</button>
+    <button class="btn amber" onclick="openCorrection()">✓ Correction</button>
+    <button class="btn" onclick="toggleHints()">💡 Hints</button>
+    <button class="btn" onclick="togglePanel()">☰ Panel</button>
+    <button class="btn red" onclick="resetAll()">↺ Reset</button>
+  </div>
+</div>
+
+<!-- MAIN -->
+<div id="main">
+  <!-- SIDE PANEL -->
+  <div id="sidepanel">
+    <div class="panel-tabs">
+      <div class="ptab active" onclick="switchTab('cheat')">Cheatsheet</div>
+      <div class="ptab" onclick="switchTab('state')">State</div>
+      <div class="ptab" onclick="switchTab('exercise')">Exercise</div>
+    </div>
+
+    <div class="panel-content" id="tab-cheat">
+      <div id="hints-box" style="display:none;margin-bottom:8px;" id="hints-content">
+        💡 Select a TP above to load contextual hints.
+      </div>
+
+      <div class="panel-section">
+        <h3>TP1 — Admin</h3>
+        <div class="cmd-item" onclick="insertCmd('Idle-timeout 60')"><code>Idle-timeout 60</code><br>Set idle timeout</div>
+        <div class="cmd-item" onclick="insertCmd('enable')"><code>enable</code><br>Privileged mode</div>
+        <div class="cmd-item" onclick="insertCmd('config')"><code>config</code><br>Config mode</div>
+        <div class="cmd-item" onclick="insertCmd('display alarm active all detail')"><code>display alarm active all detail</code></div>
+        <div class="cmd-item" onclick="insertCmd('display board 0')"><code>display board 0</code></div>
+        <div class="cmd-item" onclick="insertCmd('board add 0/12 H80BCAME')"><code>board add &lt;slot&gt; &lt;type&gt;</code></div>
+        <div class="cmd-item" onclick="insertCmd('board delete 0/12')"><code>board delete &lt;slot&gt;</code></div>
+        <div class="cmd-item" onclick="insertCmd('terminal user-profile add ensttic47 30 30 08:00 18:00')"><code>terminal user-profile add &lt;name&gt; ...</code></div>
+        <div class="cmd-item" onclick="insertCmd('terminal user name ensttic47 ige47 ige47 ensttic47 2')"><code>terminal user name &lt;user&gt; &lt;pass&gt; ...</code></div>
+      </div>
+
+      <div class="panel-section">
+        <h3>TP2 — VLAN</h3>
+        <div class="cmd-item" onclick="insertCmd('vlan 104 smart')"><code>vlan &lt;id&gt; smart</code><br>Create smart VLAN</div>
+        <div class="cmd-item" onclick="insertCmd('vlan attrib 104 stacking')"><code>vlan attrib &lt;id&gt; stacking</code></div>
+        <div class="cmd-item" onclick="insertCmd('vlan attrib 204 q-in-q')"><code>vlan attrib &lt;id&gt; q-in-q</code></div>
+        <div class="cmd-item" onclick="insertCmd('port vlan 104 0/9 0')"><code>port vlan &lt;id&gt; 0/9 0</code></div>
+        <div class="cmd-item" onclick="insertCmd('service-port vlan 104 adsl 0/3/4 vpi 0 vci 38 multi-service user-encap pppoe rx-cttr 6 tx-cttr 6')"><code>service-port vlan ... multi-service pppoe</code></div>
+        <div class="cmd-item" onclick="insertCmd('stacking label service-port 1 14')"><code>stacking label service-port &lt;idx&gt; &lt;vlan&gt;</code></div>
+      </div>
+
+      <div class="panel-section">
+        <h3>TP3 — VoIP</h3>
+        <div class="cmd-item" onclick="insertCmd('vlan 200 standard')"><code>vlan &lt;id&gt; standard</code></div>
+        <div class="cmd-item" onclick="insertCmd('interface vlanif 200')"><code>interface vlanif &lt;id&gt;</code></div>
+        <div class="cmd-item" onclick="insertCmd('ip address 2.0.0.1 8')"><code>ip address &lt;ip&gt; &lt;mask&gt;</code></div>
+        <div class="cmd-item" onclick="insertCmd('ip route-static 2.0.0.20 8 2.0.0.10')"><code>ip route-static &lt;dest&gt; &lt;mask&gt; &lt;gw&gt;</code></div>
+        <div class="cmd-item" onclick="insertCmd('voip')"><code>voip</code><br>Enter VoIP mode</div>
+        <div class="cmd-item" onclick="insertCmd('ip address media 2.0.0.1')"><code>ip address media &lt;ip&gt;</code></div>
+        <div class="cmd-item" onclick="insertCmd('interface h248 2')"><code>interface h248 &lt;id&gt;</code></div>
+        <div class="cmd-item" onclick="insertCmd('digitmap set inner 2xx')"><code>digitmap set inner &lt;pattern&gt;</code></div>
+        <div class="cmd-item" onclick="insertCmd('esl user')"><code>esl user</code></div>
+        <div class="cmd-item" onclick="insertCmd('mgpstnuser add 0/3/2 2 terminalid 2 telno 200 priority cat3 potslinetype del')"><code>mgpstnuser add ...</code></div>
+      </div>
+
+      <div class="panel-section">
+        <h3>TP4 — ADSL</h3>
+        <div class="cmd-item" onclick="insertCmd('adsl line profile add 18')"><code>adsl line profile add &lt;n&gt;</code></div>
+        <div class="cmd-item" onclick="insertCmd('interface adsl 0/3')"><code>interface adsl 0/3</code></div>
+        <div class="cmd-item" onclick="insertCmd('deactivate 8')"><code>deactivate &lt;port&gt;</code></div>
+        <div class="cmd-item" onclick="insertCmd('activate 8 profile-index 18')"><code>activate &lt;port&gt; profile-index &lt;n&gt;</code></div>
+        <div class="cmd-item" onclick="insertCmd('traffic table ip index 25 cir 640 priority 3 priority-policy local-setting')"><code>traffic table ip index &lt;n&gt; cir &lt;n&gt; ...</code></div>
+        <div class="cmd-item" onclick="insertCmd('display line bit allocation 0')"><code>display line bit allocation &lt;port&gt;</code></div>
+        <div class="cmd-item" onclick="insertCmd('display line snr 0')"><code>display line snr &lt;port&gt;</code></div>
+        <div class="cmd-item" onclick="insertCmd('display modem atu-c')"><code>display modem atu-c</code></div>
+      </div>
+    </div><!-- end tab-cheat -->
+
+    <div class="panel-content" id="tab-state" style="display:none;">
+      <div class="panel-section">
+        <h3>System</h3>
+        <div id="state-sys" class="state-item">Mode: <span id="state-mode-disp">login</span></div>
+        <div id="state-variant-disp" class="state-item">Variant: <span>MSAN_A</span></div>
+      </div>
+      <div class="panel-section">
+        <h3>User Profiles</h3>
+        <div id="state-profiles"><div class="state-item">— none —</div></div>
+      </div>
+      <div class="panel-section">
+        <h3>Terminal Users</h3>
+        <div id="state-users"><div class="state-item">— none —</div></div>
+      </div>
+      <div class="panel-section">
+        <h3>Boards</h3>
+        <div id="state-boards"><div class="state-item">— none —</div></div>
+      </div>
+      <div class="panel-section">
+        <h3>VLANs</h3>
+        <div id="state-vlans"><div class="state-item">— none —</div></div>
+      </div>
+      <div class="panel-section">
+        <h3>Service Ports</h3>
+        <div id="state-svcport"><div class="state-item">— none —</div></div>
+      </div>
+      <div class="panel-section">
+        <h3>Traffic Tables</h3>
+        <div id="state-traffic"><div class="state-item">— none —</div></div>
+      </div>
+      <div class="panel-section">
+        <h3>VoIP</h3>
+        <div id="state-voip"><div class="state-item">— not configured —</div></div>
+      </div>
+      <div class="panel-section">
+        <h3>MG Interfaces</h3>
+        <div id="state-mg"><div class="state-item">— none —</div></div>
+      </div>
+      <div class="panel-section">
+        <h3>PSTN Users</h3>
+        <div id="state-pstn"><div class="state-item">— none —</div></div>
+      </div>
+      <div class="panel-section">
+        <h3>Routes</h3>
+        <div id="state-routes"><div class="state-item">— none —</div></div>
+      </div>
+      <div class="panel-section">
+        <h3>ADSL Profiles</h3>
+        <div id="state-adsl"><div class="state-item">— none —</div></div>
+      </div>
+      <div class="panel-section">
+        <h3>SIP Users</h3>
+        <div id="state-sip"><div class="state-item">— none —</div></div>
+      </div>
+    </div><!-- end tab-state -->
+
+    <div class="panel-content" id="tab-exercise" style="display:none;">
+      <div id="exercise-box">
+        <div class="ex-title">⬡ NO EXERCISE ACTIVE</div>
+        <div style="color:var(--text-dim);font-size:10px;">Select a TP exercise from the top menu.</div>
+      </div>
+      <div id="score-box">
+        Score: <span class="score-num" id="score-num">0</span> / <span id="score-total">0</span>
+      </div>
+    </div><!-- end tab-exercise -->
+  </div><!-- end sidepanel -->
+
+  <!-- TERMINAL -->
+  <div id="terminal-wrap">
+    <div id="terminal-header">
+      <div class="term-title">HUAWEI MA5600T TERMINAL</div>
+      <div class="term-info">
+        <span>MODE: <b id="mode-label">login</b></span>
+        <span>CMDS: <b id="cmd-count">0</b></span>
+        <span id="clock2"></span>
+      </div>
+    </div>
+
+    <div id="output"></div>
+    <div id="autocomplete"></div>
+
+    <div id="input-area">
+      <span id="prompt-label">Login: </span>
+      <input type="text" id="cmd-input" autocomplete="off" spellcheck="false" autofocus>
+      <div id="cursor-block"></div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL -->
+<div id="modal-overlay">
+  <div id="modal">
+    <button class="modal-close" onclick="closeModal()">✕</button>
+    <h2 id="modal-title">⚡ TP EXERCISE</h2>
+    <div id="modal-body"></div>
+    <div class="modal-btns">
+      <button class="btn amber" id="modal-start-btn" onclick="startExercise()">Start Exercise</button>
+      <button class="btn" onclick="closeModal()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// CREDENTIALS CONFIG
+// ============================================================
+const CREDS = {
+  A: { username:'ensttic47',  password:'ige47',  profile:'ensttic47', level:2 },
+  B: { username:'inttic13', password:'inttic131', profile:'ensttic1', level:2 },
+};
+const ENABLE_PASS = { A:'ige47', B:'inttic131' };
+
+// ============================================================
+// STATE
+// ============================================================
+const state = {
+  // Login state
+  loginPhase: 'username',  // 'username' | 'password' | 'enable-password' | 'logged-in'
+  loginAttempts: 0,
+  loginUsername: '',
+  authMode: 'user',        // 'user' | 'enable' | 'config'
+  loggedIn: false,
+  enableMode: false,
+
+  // Device variant
+  variant: 'A',  // 'A' | 'B'
+
+  // Config mode
+  mode: 'user',  // 'user' | 'privileged' | 'config' | 'config-if-adsl' | 'config-voip' | 'config-mg' | 'config-if-vlanif' | 'config-esl-user'
+  currentIface: null,
+
+  // Config data
+  vlans: {},
+  trafficTables: {},
+  servicePorts: [],
+  sipUsers: [],
+  adslProfiles: {},
+  adslActivations: {},
+  voip: { media:null, signaling:null },
+  mgInterfaces: {},
+  idleTimeout: null,
+  boards: {},
+  userProfiles: {},
+  terminalUsers: {},
+  vlanifs: {},
+  routes: [],
+  pstnUsers: [],
+  voipMg: { msan:null, passerelle:null, softswitch:null, port:null },
+
+  history: [],
+  histIdx: -1,
+  cmdCount: 0,
+  spNextIdx: 1,
+};
+
+let currentExercise = null;
+let exerciseLog = [];
+let score = 0;
+let scoreTotal = 0;
+let hintsVisible = false;
+let panelVisible = true;
+let activeTab = 'cheat';
+let acItems = [];
+let acSelected = -1;
+let pendingExercise = null; // exercise selected but not started yet
+
+// ============================================================
+// EXERCISES DATABASE
+// ============================================================
+const EXERCISES = {
+  '1A': {
+    title: 'TP1 — 1A: MSAN_A Alarms & Boards',
+    variant: 'A',
+    hints: 'TP1: Use display alarm and display board commands. Idle-timeout goes at top level.',
+    tasks: [
+      'Set idle timeout to 60',
+      'Display all active alarms with detail',
+      'Display alarm list alarmclass fault 1 5',
+      'Display alarm list alarmtype service 4 5',
+      'Display board 0','Display board 0/0','Display board 0/1',
+      'Display board 0/2','Display board 0/3','Display board 0/4',
+      'Display board 0/5','Display board 0/9','Display board 0/10',
+    ],
+    expected: [
+      'Idle-timeout 60',
+      'display alarm active all detail',
+      'display alarm list alarmclass fault 1 5',
+      'display alarm list alarmtype service 4 5',
+      'display board 0','display board 0/0','display board 0/1',
+      'display board 0/2','display board 0/3','display board 0/4',
+      'display board 0/5','display board 0/9','display board 0/10',
+    ],
+  },
+  '1B': {
+    title: 'TP1 — 1B: MSAN_A User Management',
+    variant: 'A',
+    hints: 'TP1: enable → user-profile add → terminal user name. Profile before user.',
+    tasks: [
+      'Enter enable mode',
+      'Add terminal user-profile: ensttic47, idle=30, reenter=30, 08:00-18:00',
+      'Display terminal user-profile all',
+      'Add terminal user: ensttic47, password ige47, profile ensttic47, level 2',
+      'Display terminal user',
+    ],
+    expected: [
+      'enable',
+      'terminal user-profile add ensttic47 30 30 08:00 18:00',
+      'display terminal user-profile all',
+      'terminal user name ensttic47 ige47 ige47 ensttic47 2',
+      'display terminal user',
+    ],
+  },
+  '1C': {
+    title: 'TP1 — 1C: MSAN_A Board Management',
+    variant: 'A',
+    hints: 'TP1: config → board add → display board → board delete → display board',
+    tasks: [
+      'Enter config mode',
+      'Add board at slot 0/12 type H80BCAME',
+      'Display board 0',
+      'Delete board at slot 0/12',
+      'Display board 0',
+    ],
+    expected: [
+      'config',
+      'board add 0/12 H80BCAME',
+      'display board 0',
+      'board delete 0/12',
+      'display board 0',
+    ],
+  },
+  '1D': {
+    title: 'TP1 — 1D: MSAN_B Variant',
+    variant: 'B',
+    hints: 'TP1 MSAN_B: Same flow but profile=ensttic1, user=inttic13, board slot 0/6',
+    tasks: [
+      'Set idle timeout to 60',
+      'Display all active alarms with detail',
+      'Display alarm list alarmclass fault 1 5',
+      'Display alarm list alarmtype service 4 5',
+      'Display board 0 through 0/10',
+      'Enter enable mode',
+      'Add user-profile: ensttic1, idle=30, reenter=30, 08:00-18:00',
+      'Display terminal user-profile all',
+      'Add user: inttic13, password inttic131, profile ensttic1, level 2',
+      'Display terminal user',
+      'Enter config',
+      'Add board at slot 0/6 type H80BCAME',
+      'Display board 0',
+      'Delete board at slot 0/6',
+      'Display board 0',
+    ],
+    expected: [
+      'Idle-timeout 60',
+      'display alarm active all detail',
+      'display alarm list alarmclass fault 1 5',
+      'display alarm list alarmtype service 4 5',
+      'display board 0',
+      'enable',
+      'terminal user-profile add ensttic1 30 30 08:00 18:00',
+      'display terminal user-profile all',
+      'terminal user name inttic13 inttic131 inttic131 ensttic1 2',
+      'display terminal user',
+      'config',
+      'board add 0/6 H80BCAME',
+      'display board 0',
+      'board delete 0/6',
+      'display board 0',
+    ],
+  },
+  '2A': {
+    title: 'TP2 — 2A: MSAN_A VLAN Stacking',
+    variant: 'A',
+    hints: 'TP2: vlan smart → vlan attrib stacking → port vlan → service-port multi-service pppoe → display → stacking label',
+    tasks: [
+      'Set idle timeout 60',
+      'Create VLAN 104 smart',
+      'Set stacking attribute on VLAN 104',
+      'Assign upstream port 0/9/0 to VLAN 104',
+      'Create service-port: vlan 104, adsl 0/3/4, vpi 0, vci 38, multi-service pppoe, rx-cttr 6, tx-cttr 6',
+      'Display service-port port 0/3/4',
+      'Set stacking label: service-port index 1, inner vlan 14',
+    ],
+    expected: [
+      'Idle-timeout 60',
+      'vlan 104 smart',
+      'vlan attrib 104 stacking',
+      'port vlan 104 0/9 0',
+      'service-port vlan 104 adsl 0/3/4 vpi 0 vci 38 multi-service user-encap pppoe rx-cttr 6 tx-cttr 6',
+      'display service-port port 0/3/4',
+      'stacking label service-port 1 14',
+    ],
+  },
+  '2B': {
+    title: 'TP2 — 2B: MSAN_A VLAN QinQ',
+    variant: 'A',
+    hints: 'TP2: vlan smart → vlan attrib q-in-q → port vlan 0/9 1 → service-port multi-service user-vlan',
+    tasks: [
+      'Create VLAN 204 smart',
+      'Set q-in-q attribute on VLAN 204',
+      'Assign upstream port 0/9/1 to VLAN 204',
+      'Create service-port: vlan 204, adsl 0/3/16, vpi 0, vci 38, multi-service user-vlan 124, rx-cttr 6, tx-cttr 6',
+    ],
+    expected: [
+      'vlan 204 smart',
+      'vlan attrib 204 q-in-q',
+      'port vlan 204 0/9 1',
+      'service-port vlan 204 adsl 0/3/16 vpi 0 vci 38 multi-service user-vlan 124 rx-cttr 6 tx-cttr 6',
+    ],
+  },
+  '2C': {
+    title: 'TP2 — 2C: MSAN_B VLAN Stacking',
+    variant: 'B',
+    hints: 'TP2 MSAN_B: VLAN 101, port 0/3/1, stacking label inner vlan 11',
+    tasks: [
+      'Create VLAN 101 smart',
+      'Set stacking attribute on VLAN 101',
+      'Assign upstream port 0/9/0 to VLAN 101',
+      'Create service-port: vlan 101, adsl 0/3/1, vpi 0, vci 38, multi-service pppoe, rx-cttr 6, tx-cttr 6',
+      'Display service-port port 0/3/1',
+      'Set stacking label service-port index 1, inner vlan 11',
+    ],
+    expected: [
+      'vlan 101 smart',
+      'vlan attrib 101 stacking',
+      'port vlan 101 0/9 0',
+      'service-port vlan 101 adsl 0/3/1 vpi 0 vci 38 multi-service user-encap pppoe rx-cttr 6 tx-cttr 6',
+      'display service-port port 0/3/1',
+      'stacking label service-port 1 11',
+    ],
+  },
+  '2D': {
+    title: 'TP2 — 2D: MSAN_B VLAN QinQ',
+    variant: 'B',
+    hints: 'TP2 MSAN_B: VLAN 201, port 0/3/13, user-vlan 121',
+    tasks: [
+      'Create VLAN 201 smart',
+      'Set q-in-q attribute on VLAN 201',
+      'Assign upstream port 0/9/1 to VLAN 201',
+      'Create service-port: vlan 201, adsl 0/3/13, vpi 0, vci 38, multi-service user-vlan 121, rx-cttr 6, tx-cttr 6',
+    ],
+    expected: [
+      'vlan 201 smart',
+      'vlan attrib 201 q-in-q',
+      'port vlan 201 0/9 1',
+      'service-port vlan 201 adsl 0/3/13 vpi 0 vci 38 multi-service user-vlan 121 rx-cttr 6 tx-cttr 6',
+    ],
+  },
+  '3A': {
+    title: 'TP3 — 3A: MSAN_A VoIP Upstream VLAN',
+    variant: 'A',
+    hints: 'TP3: vlan standard → vlan desc → display → port vlan → interface vlanif → ip address → quit → ip route-static → voip → ip address media/signaling',
+    tasks: [
+      'Create VLAN 200 standard',
+      'Add description "voip" to VLAN 200',
+      'Display VLAN 200',
+      'Assign port 0/9/0 to VLAN 200',
+      'Create interface vlanif 200',
+      'Set IP address 2.0.0.1 mask 8',
+      'Quit vlanif',
+      'Configure static route: dest 2.0.0.20 mask 8 gw 2.0.0.10',
+      'Enter voip config',
+      'Set media IP to 2.0.0.1',
+      'Set signaling IP to 2.0.0.1',
+    ],
+    expected: [
+      'vlan 200 standard',
+      'vlan desc 200 description voip',
+      'display vlan 200',
+      'port vlan 200 0/9 0',
+      'interface vlanif 200',
+      'ip address 2.0.0.1 8',
+      'quit',
+      'ip route-static 2.0.0.20 8 2.0.0.10',
+      'voip',
+      'ip address media 2.0.0.1',
+      'ip address signaling 2.0.0.1',
+    ],
+  },
+  '3B': {
+    title: 'TP3 — 3B: MSAN_A Internal Phone Setup (H.248)',
+    variant: 'A',
+    hints: 'TP3: interface h248 2 → digitmap set inner 2xx → mg-software parameter 11 1 → quit → esl user → mgpstnuser add ...',
+    tasks: [
+      'Add MG interface h248 2',
+      'Set digitmap inner to 2xx',
+      'Set mg-software parameter 11 1',
+      'Quit to config',
+      'Enter esl user config',
+      'Add mgpstnuser port 0/3/2, vlan 2, terminalid 2, telno 200, priority cat3, potslinetype del',
+      'Add mgpstnuser port 0/3/3, vlan 2, terminalid 3, telno 220, priority cat3, potslinetype del',
+      'Display mgpstnuser 0/3/2 0/3/3',
+    ],
+    expected: [
+      'interface h248 2',
+      'digitmap set inner 2xx',
+      'mg-software parameter 11 1',
+      'quit',
+      'esl user',
+      'mgpstnuser add 0/3/2 2 terminalid 2 telno 200 priority cat3 potslinetype del',
+      'mgpstnuser add 0/3/3 2 terminalid 3 telno 220 priority cat3 potslinetype del',
+      'display mgpstnuser 0/3/2 0/3/3',
+    ],
+  },
+  '3C': {
+    title: 'TP3 — 3C: MSAN_A VoIP Cleanup (undo)',
+    variant: 'A',
+    hints: 'TP3 cleanup: shutdown force in h248 → delete pstn users → undo interface h248 → undo voip IPs → undo vlanif → undo port vlan → undo vlan',
+    tasks: [
+      'Enter h248 interface 2',
+      'Shutdown force',
+      'Quit',
+      'Enter esl user',
+      'Delete mgpstnuser 0/3/2',
+      'Delete mgpstnuser 0/3/3',
+      'Quit',
+      'Undo interface h248 2',
+      'Undo voip media IP 2.0.0.1',
+      'Undo voip signaling IP 2.0.0.1',
+      'Undo interface vlanif 200',
+      'Undo port vlan 200 0/9 0',
+      'Undo vlan 200',
+    ],
+    expected: [
+      'interface h248 2',
+      'shutdown force',
+      'quit',
+      'esl user',
+      'mgpstnuser del 0/3/2',
+      'mgpstnuser del 0/3/3',
+      'quit',
+      'undo interface h248 2',
+      'undo ip address media 2.0.0.1',
+      'undo ip address signaling 2.0.0.1',
+      'undo interface vlanif 200',
+      'undo port vlan 200 0/9 0',
+      'undo vlan 200',
+    ],
+  },
+  '3D': {
+    title: 'TP3 — 3D: MSAN_B VoIP Full',
+    variant: 'B',
+    hints: 'TP3 MSAN_B: VLAN 500, IP 5.0.0.1/8, gw 5.0.0.10, route 5.0.0.20, h248 5, digitmap 5xx, ports 0/3/8 telno 500, 0/3/9 telno 550',
+    tasks: [
+      'Create VLAN 500 standard',
+      'Add description "voip" to VLAN 500',
+      'Display VLAN 500',
+      'Assign port 0/9/0 to VLAN 500',
+      'Create interface vlanif 500',
+      'Set IP 5.0.0.1 mask 8',
+      'Quit',
+      'ip route-static 5.0.0.20 8 5.0.0.10',
+      'Enter voip config',
+      'Set media IP 5.0.0.1',
+      'Set signaling IP 5.0.0.1',
+      'Add MG interface h248 5',
+      'Set digitmap inner 5xx',
+      'Set mg-software parameter 11 1',
+      'Quit',
+      'Enter esl user',
+      'Add mgpstnuser 0/3/8, vlan 5, terminalid 8, telno 500, priority cat3, potslinetype del',
+      'Add mgpstnuser 0/3/9, vlan 5, terminalid 9, telno 550, priority cat3, potslinetype del',
+      'Display mgpstnuser 0/3/8 0/3/9',
+    ],
+    expected: [
+      'vlan 500 standard',
+      'vlan desc 500 description voip',
+      'display vlan 500',
+      'port vlan 500 0/9 0',
+      'interface vlanif 500',
+      'ip address 5.0.0.1 8',
+      'quit',
+      'ip route-static 5.0.0.20 8 5.0.0.10',
+      'voip',
+      'ip address media 5.0.0.1',
+      'ip address signaling 5.0.0.1',
+      'interface h248 5',
+      'digitmap set inner 5xx',
+      'mg-software parameter 11 1',
+      'quit',
+      'esl user',
+      'mgpstnuser add 0/3/8 5 terminalid 8 telno 500 priority cat3 potslinetype del',
+      'mgpstnuser add 0/3/9 5 terminalid 9 telno 550 priority cat3 potslinetype del',
+      'display mgpstnuser 0/3/8 0/3/9',
+    ],
+  },
+  '4A': {
+    title: 'TP4 — 4A: MSAN_A Full ADSL Setup',
+    variant: 'A',
+    hints: 'TP4: Idle-timeout → vlan smart → vlan desc → display → port vlan → adsl line profile → interface adsl → deactivate → activate profile-index → quit → traffic tables → service-port single-service',
+    tasks: [
+      'Set idle timeout 60',
+      'Create VLAN 28 smart',
+      'Add description "internetservice" to VLAN 28',
+      'Display VLAN 28',
+      'Assign upstream port 0/9/0 to VLAN 28',
+      'Create ADSL line profile index 18',
+      'Enter interface adsl 0/3',
+      'Deactivate port 8',
+      'Activate port 8 with profile-index 18',
+      'Quit',
+      'Create traffic table index 25, cir 640, priority 3, local-setting',
+      'Create traffic table index 26, cir 1200, priority 3, local-setting',
+      'Create service-port: vlan 28, adsl 0/3/8, vpi 0, vci 38, single-service, rx-cttx 26, tx-cttr 25',
+    ],
+    expected: [
+      'Idle-timeout 60',
+      'vlan 28 smart',
+      'vlan desc 28 description internetservice',
+      'display vlan 28',
+      'port vlan 28 0/9 0',
+      'adsl line profile add 18',
+      'interface adsl 0/3',
+      'deactivate 8',
+      'activate 8 profile-index 18',
+      'quit',
+      'traffic table ip index 25 cir 640 priority 3 priority-policy local-setting',
+      'traffic table ip index 26 cir 1200 priority 3 priority-policy local-setting',
+      'service-port vlan 28 adsl 0/3/8 vpi 0 vci 38 single-service rx-cttx 26 tx-cttr 25',
+    ],
+  },
+  '4B': {
+    title: 'TP4 — 4B: MSAN_A Line Verification',
+    variant: 'A',
+    hints: 'TP4: interface adsl → display line bit allocation → display line snr → display modem atu-c → display modem atu-r',
+    tasks: [
+      'Enter interface adsl 0/3',
+      'Display line bit allocation port 0',
+      'Display line SNR port 0',
+      'Display modem atu-c',
+      'Display modem atu-r',
+    ],
+    expected: [
+      'interface adsl 0/3',
+      'display line bit allocation 0',
+      'display line snr 0',
+      'display modem atu-c',
+      'display modem atu-r',
+    ],
+  },
+  '4C': {
+    title: 'TP4 — 4C: MSAN_B Full ADSL Setup',
+    variant: 'B',
+    hints: 'TP4 MSAN_B: Same as 4A but on MSAN_B prompt. Identical commands and values.',
+    tasks: [
+      'Set idle timeout 60',
+      'Create VLAN 28 smart',
+      'Add description "internetservice" to VLAN 28',
+      'Display VLAN 28',
+      'Assign upstream port 0/9/0 to VLAN 28',
+      'Create ADSL line profile index 18',
+      'Enter interface adsl 0/3',
+      'Deactivate port 8',
+      'Activate port 8 with profile-index 18',
+      'Quit',
+      'Create traffic table index 25, cir 640, priority 3',
+      'Create traffic table index 26, cir 1200, priority 3',
+      'Create service-port: vlan 28, adsl 0/3/8, single-service, rx-cttx 26, tx-cttr 25',
+    ],
+    expected: [
+      'Idle-timeout 60',
+      'vlan 28 smart',
+      'vlan desc 28 description internetservice',
+      'display vlan 28',
+      'port vlan 28 0/9 0',
+      'adsl line profile add 18',
+      'interface adsl 0/3',
+      'deactivate 8',
+      'activate 8 profile-index 18',
+      'quit',
+      'traffic table ip index 25 cir 640 priority 3 priority-policy local-setting',
+      'traffic table ip index 26 cir 1200 priority 3 priority-policy local-setting',
+      'service-port vlan 28 adsl 0/3/8 vpi 0 vci 38 single-service rx-cttx 26 tx-cttr 25',
+    ],
+  },
+
+  // ══════════════════════════════════════════════════════════
+  // EXAMENS D'ENTRAÎNEMENT (basés sur les sujets réels)
+  // ══════════════════════════════════════════════════════════
+
+  'EX1A': {
+    title: 'EXAM 1 — Créer un VLAN Stacking',
+    variant: 'A',
+    hints: 'Exam 1A: VLAN externe 200 smart + stacking, port upstream 0/9/0, service-port multi-service pppoe vpi=0 vci=140 port ADSL 32, puis stacking label (VLAN interne 40). rx-cttr 5 tx-cttr 5.',
+    tasks: [
+      'Créer VLAN 200 smart',
+      'Attribuer l\'attribut stacking au VLAN 200',
+      'Assigner le port upstream 0/9/0 au VLAN 200',
+      'Créer service-port: vlan 200, adsl 0/0/32, vpi 0, vci 140, multi-service user-encap pppoe, rx-cttr 5, tx-cttr 5',
+      'Afficher le service-port du port 0/0/32 (relever l\'index)',
+      'Appliquer stacking label service-port index 1 vlan interne 40',
+    ],
+    expected: [
+      'vlan 200 smart',
+      'vlan attrib 200 stacking',
+      'port vlan 200 0/9 0',
+      'service-port vlan 200 adsl 0/0/32 vpi 0 vci 140 multi-service user-encap pppoe rx-cttr 5 tx-cttr 5',
+      'display service-port port 0/0/32',
+      'stacking label service-port 1 40',
+    ],
+  },
+
+  'EX1B': {
+    title: 'EXAM 1 — Service ADSL (VLAN 40)',
+    variant: 'A',
+    hints: 'Exam 1B: VLAN 40 smart, port 0/9/0, activer port ADSL 6 avec line profile 1001 (existant), traffic table tx-cttr 24 CIR 1400 priority 3, tx-cttr 25 CIR 660 priority 3, service-port single-service vpi=0 vci=60.',
+    tasks: [
+      'Créer VLAN 40 smart',
+      'Assigner port upstream 0/9/0 au VLAN 40',
+      'Entrer interface adsl 0/0',
+      'Désactiver port 6',
+      'Activer port 6 avec profile-index 1001',
+      'Quitter l\'interface ADSL',
+      'Créer traffic table index 24, cir 1400, priority 3, priority-policy local-setting',
+      'Créer traffic table index 25, cir 660, priority 3, priority-policy local-setting',
+      'Créer service-port: vlan 40, adsl 0/0/6, vpi 0, vci 60, single-service, rx-cttx 24, tx-cttr 25',
+    ],
+    expected: [
+      'vlan 40 smart',
+      'port vlan 40 0/9 0',
+      'interface adsl 0/0',
+      'deactivate 6',
+      'activate 6 profile-index 1001',
+      'quit',
+      'traffic table ip index 24 cir 1400 priority 3 priority-policy local-setting',
+      'traffic table ip index 25 cir 660 priority 3 priority-policy local-setting',
+      'service-port vlan 40 adsl 0/0/6 vpi 0 vci 60 single-service rx-cttx 24 tx-cttr 25',
+    ],
+  },
+
+  'EX2A': {
+    title: 'EXAM 2 — Créer un User-Profile + Utilisateur',
+    variant: 'A',
+    hints: 'Exam 2A: Créer user-profile nom msan90 (paramètres choix libre), puis créer un utilisateur exploitant nom Mohamed1, user-profile operator (existant).',
+    tasks: [
+      'Créer terminal user-profile msan90 (idle=30, reenter=30, 08:00-18:00)',
+      'Afficher tous les terminal user-profile',
+      'Créer utilisateur Mohamed1, mot de passe 0000, profile operator, level 2',
+      'Afficher les terminal users',
+    ],
+    expected: [
+      'terminal user-profile add msan90 30 30 08:00 18:00',
+      'display terminal user-profile all',
+      'terminal user name Mohamed1 0000 0000 operator 2',
+      'display terminal user',
+    ],
+  },
+
+  'EX2B': {
+    title: 'EXAM 2 — Configurer Service VoIP (sans abonnés)',
+    variant: 'A',
+    hints: 'Exam 2B: VLAN 420 standard, port upstream 0/9/0, interface vlanif 420, IP msan 3.0.0.18/8, route vers softswitch 3.0.0.22 via passerelle 3.0.0.20, interface h248 140, voip media+signaling.',
+    tasks: [
+      'Créer VLAN 420 standard',
+      'Assigner port upstream 0/9/0 au VLAN 420',
+      'Créer interface vlanif 420',
+      'Configurer IP 3.0.0.18 masque 8',
+      'Quitter vlanif',
+      'Ajouter route statique: dest 3.0.0.22 masque 8 via 3.0.0.20',
+      'Entrer mode voip',
+      'Configurer IP media 3.0.0.18 et passerelle 3.0.0.20',
+      'Configurer IP signaling 3.0.0.18',
+      'Créer interface h248 140',
+    ],
+    expected: [
+      'vlan 420 standard',
+      'port vlan 420 0/9 0',
+      'interface vlanif 420',
+      'ip address 3.0.0.18 8',
+      'quit',
+      'ip route-static 3.0.0.22 8 3.0.0.20',
+      'voip',
+      'ip address media 3.0.0.18 3.0.0.20',
+      'ip address signaling 3.0.0.18',
+      'interface h248 140',
+    ],
+  },
+
+  'EX3A': {
+    title: 'EXAM 3 — Établir communication entre deux abonnés',
+    variant: 'A',
+    hints: 'Exam 3A: Interface h248 600, abonné 1 carte ASPB port 6 (terminalid 6, telno 520, priority cat3, potslinetype del), abonné 2 carte CAME port 10 (terminalid 10, telno 542, priority cat2, potslinetype del).',
+    tasks: [
+      'Créer interface h248 600',
+      'Quitter vers config',
+      'Entrer esl user',
+      'Ajouter abonné 1: port 0/0/6, vlan 600, terminalid 6, telno 520, priority cat3, potslinetype del',
+      'Ajouter abonné 2: port 0/0/10, vlan 600, terminalid 10, telno 542, priority cat2, potslinetype del',
+      'Afficher les PSTN users',
+    ],
+    expected: [
+      'interface h248 600',
+      'quit',
+      'esl user',
+      'mgpstnuser add 0/0/6 600 terminalid 6 telno 520 priority cat3 potslinetype del',
+      'mgpstnuser add 0/0/10 600 terminalid 10 telno 542 priority cat2 potslinetype del',
+      'display mgpstnuser 0/0/6 0/0/10',
+    ],
+  },
+
+  'EX3B': {
+    title: 'EXAM 3 — Service ADSL (VLAN 60)',
+    variant: 'A',
+    hints: 'Exam 3B: VLAN 60 smart, port upstream 0/9/0, single service, port ADSL 12, vpi=0 vci=80, line profile 1001 (existant), tx-cttr 36 CIR 1800 priority 3, tx-cttr 37 CIR 700 priority 2.',
+    tasks: [
+      'Créer VLAN 60 smart',
+      'Assigner port upstream 0/9/0 au VLAN 60',
+      'Entrer interface adsl 0/0',
+      'Désactiver port 12',
+      'Activer port 12 avec profile-index 1001',
+      'Quitter l\'interface ADSL',
+      'Créer traffic table index 36, cir 1800, priority 3, priority-policy local-setting',
+      'Créer traffic table index 37, cir 700, priority 2, priority-policy local-setting',
+      'Créer service-port: vlan 60, adsl 0/0/12, vpi 0, vci 80, single-service, rx-cttx 36, tx-cttr 37',
+    ],
+    expected: [
+      'vlan 60 smart',
+      'port vlan 60 0/9 0',
+      'interface adsl 0/0',
+      'deactivate 12',
+      'activate 12 profile-index 1001',
+      'quit',
+      'traffic table ip index 36 cir 1800 priority 3 priority-policy local-setting',
+      'traffic table ip index 37 cir 700 priority 2 priority-policy local-setting',
+      'service-port vlan 60 adsl 0/0/12 vpi 0 vci 80 single-service rx-cttx 36 tx-cttr 37',
+    ],
+  },
+
+  'EX4A': {
+    title: 'EXAM 4 — Service ADSL (VLAN 80)',
+    variant: 'A',
+    hints: 'Exam 4A: VLAN 80 smart, port upstream 0/9/0, port ADSL 18, vpi=0 vci=120, single service, line profile 1001 (existant), tx-cttr 48 CIR 1900 priority 4, tx-cttr 49 CIR 800 priority 3.',
+    tasks: [
+      'Créer VLAN 80 smart',
+      'Assigner port upstream 0/9/0 au VLAN 80',
+      'Entrer interface adsl 0/0',
+      'Désactiver port 18',
+      'Activer port 18 avec profile-index 1001',
+      'Quitter l\'interface ADSL',
+      'Créer traffic table index 48, cir 1900, priority 4, priority-policy local-setting',
+      'Créer traffic table index 49, cir 800, priority 3, priority-policy local-setting',
+      'Créer service-port: vlan 80, adsl 0/0/18, vpi 0, vci 120, single-service, rx-cttx 48, tx-cttr 49',
+    ],
+    expected: [
+      'vlan 80 smart',
+      'port vlan 80 0/9 0',
+      'interface adsl 0/0',
+      'deactivate 18',
+      'activate 18 profile-index 1001',
+      'quit',
+      'traffic table ip index 48 cir 1900 priority 4 priority-policy local-setting',
+      'traffic table ip index 49 cir 800 priority 3 priority-policy local-setting',
+      'service-port vlan 80 adsl 0/0/18 vpi 0 vci 120 single-service rx-cttx 48 tx-cttr 49',
+    ],
+  },
+
+  'EX4B': {
+    title: 'EXAM 4 — Création d\'un QinQ VLAN',
+    variant: 'A',
+    hints: 'Exam 4B: VLAN externe 220 smart + attribut q-in-q, port upstream 0/9/0, VLAN interne 50, port ADSL 38, vpi=0 vci=160, multi-service user-vlan 50, rx-cttr 6 tx-cttr 5 (existants).',
+    tasks: [
+      'Créer VLAN 220 smart',
+      'Attribuer l\'attribut q-in-q au VLAN 220',
+      'Assigner port upstream 0/9/0 au VLAN 220',
+      'Créer service-port: vlan 220, adsl 0/0/38, vpi 0, vci 160, multi-service user-vlan 50, rx-cttr 6, tx-cttr 5',
+    ],
+    expected: [
+      'vlan 220 smart',
+      'vlan attrib 220 q-in-q',
+      'port vlan 220 0/9 0',
+      'service-port vlan 220 adsl 0/0/38 vpi 0 vci 160 multi-service user-vlan 50 rx-cttr 6 tx-cttr 5',
+    ],
+  },
+
+  'EX4C': {
+    title: 'EXAM 4 — Utilisateur + Service VoIP (VLAN 410)',
+    variant: 'A',
+    hints: 'Exam 4C: Créer utilisateur Mohamed1, user-profile operator (existant). VoIP: VLAN 410 standard, port 0/9/0, port H248 2944, code text, transfer UDP, start-negotiate-version 0, interface h248 130, IP msan 2.0.0.12/8, passerelle 2.0.0.14/8 et 2.0.0.16/8.',
+    tasks: [
+      'Créer utilisateur exploitant: nom Mohamed1, user-profile operator, level 2',
+      'Créer VLAN 410 standard',
+      'Assigner port upstream 0/9/0 au VLAN 410',
+      'Créer interface vlanif 410',
+      'Configurer IP 2.0.0.12 masque 8',
+      'Quitter vlanif',
+      'Ajouter route statique vers 2.0.0.16 masque 8 via 2.0.0.14',
+      'Entrer mode voip',
+      'Configurer IP media 2.0.0.12 et passerelle 2.0.0.14',
+      'Configurer IP signaling 2.0.0.12',
+      'Créer interface h248 130',
+    ],
+    expected: [
+      'terminal user name Mohamed1 0000 0000 operator 2',
+      'vlan 410 standard',
+      'port vlan 410 0/9 0',
+      'interface vlanif 410',
+      'ip address 2.0.0.12 8',
+      'quit',
+      'ip route-static 2.0.0.16 8 2.0.0.14',
+      'voip',
+      'ip address media 2.0.0.12 2.0.0.14',
+      'ip address signaling 2.0.0.12',
+      'interface h248 130',
+    ],
+  },
+
+  'EX5A': {
+    title: 'EXAM 5 — Utilisateur djillali1 + VoIP VLAN 430',
+    variant: 'A',
+    hints: 'Exam 5A: Créer utilisateur djillali1, user-profile operator. VoIP: VLAN 430 standard, port 0/9/0, code text, transfer UDP, start-negotiate-version 0, h248 150, IP msan 4.0.0.20/8, passerelle 4.0.0.22/8, softswitch 4.0.0.24/8.',
+    tasks: [
+      'Créer utilisateur djillali1, mot de passe 0000, profile operator, level 2',
+      'Créer VLAN 430 standard',
+      'Assigner port upstream 0/9/0 au VLAN 430',
+      'Créer interface vlanif 430',
+      'Configurer IP 4.0.0.20 masque 8',
+      'Quitter vlanif',
+      'Ajouter route statique vers 4.0.0.24 masque 8 via 4.0.0.22',
+      'Entrer mode voip',
+      'Configurer IP media 4.0.0.20 et passerelle 4.0.0.22',
+      'Configurer IP signaling 4.0.0.20',
+      'Créer interface h248 150',
+    ],
+    expected: [
+      'terminal user name djillali1 0000 0000 operator 2',
+      'vlan 430 standard',
+      'port vlan 430 0/9 0',
+      'interface vlanif 430',
+      'ip address 4.0.0.20 8',
+      'quit',
+      'ip route-static 4.0.0.24 8 4.0.0.22',
+      'voip',
+      'ip address media 4.0.0.20 4.0.0.22',
+      'ip address signaling 4.0.0.20',
+      'interface h248 150',
+    ],
+  },
+
+  // ══════════════════════════════════════════════════════════
+  // EXAMENS ITTA — SUJETS RÉELS (PDF Exam_Type_ITTA)
+  // ══════════════════════════════════════════════════════════
+
+  'ITTA2A1': {
+    title: 'ITTA Exam 2″A — 1) Créer un Stacking VLAN',
+    variant: 'A',
+    hints: 'ITTA 2A-1: VLAN externe 200 smart + stacking, port upstream 0/9/0, service-port multi-service pppoe vpi=0 vci=100 port ADSL 22, rx-cttr 4 tx-cttr 4 (existants), puis stacking label (VLAN interne 120).',
+    tasks: [
+      'Créer VLAN 200 smart',
+      'Attribuer l\'attribut stacking au VLAN 200',
+      'Assigner le port upstream 0/9/0 au VLAN 200',
+      'Créer service-port: vlan 200, adsl 0/0/22, vpi 0, vci 100, multi-service user-encap pppoe, rx-cttr 4, tx-cttr 4',
+      'Afficher le service-port du port 0/0/22 (relever l\'index)',
+      'Appliquer stacking label service-port index 1, VLAN interne 120',
+    ],
+    expected: [
+      'vlan 200 smart',
+      'vlan attrib 200 stacking',
+      'port vlan 200 0/9 0',
+      'service-port vlan 200 adsl 0/0/22 vpi 0 vci 100 multi-service user-encap pppoe rx-cttr 4 tx-cttr 4',
+      'display service-port port 0/0/22',
+      'stacking label service-port 1 120',
+    ],
+  },
+
+  'ITTA2A2': {
+    title: 'ITTA Exam 2″A — 2) Service ADSL (VLAN 101)',
+    variant: 'A',
+    hints: 'ITTA 2A-2: VLAN 101 smart, port upstream 0/9/0, single service, line profile 1 (existant), port ADSL 14, vpi=0 vci=35 (noté port ADSL:14). rx-cttr 25 CIR=3800 priority 3 local-setting, tx-cttr 43 CIR=640 priority 3 local-setting.',
+    tasks: [
+      'Créer VLAN 101 smart',
+      'Assigner port upstream 0/9/0 au VLAN 101',
+      'Entrer interface adsl 0/0',
+      'Désactiver port 14',
+      'Activer port 14 avec profile-index 1',
+      'Quitter l\'interface ADSL',
+      'Créer traffic table index 25, cir 3800, priority 3, priority-policy local-setting',
+      'Créer traffic table index 43, cir 640, priority 3, priority-policy local-setting',
+      'Créer service-port: vlan 101, adsl 0/0/14, vpi 0, vci 35, single-service, rx-cttr 25, tx-cttr 43',
+    ],
+    expected: [
+      'vlan 101 smart',
+      'port vlan 101 0/9 0',
+      'interface adsl 0/0',
+      'deactivate 14',
+      'activate 14 profile-index 1',
+      'quit',
+      'traffic table ip index 25 cir 3800 priority 3 priority-policy local-setting',
+      'traffic table ip index 43 cir 640 priority 3 priority-policy local-setting',
+      'service-port vlan 101 adsl 0/0/14 vpi 0 vci 35 single-service rx-cttr 25 tx-cttr 43',
+    ],
+  },
+
+  'ITTA2A3': {
+    title: 'ITTA Exam 2″A — 3) TP1: Utilisateur + Carte',
+    variant: 'A',
+    hints: 'ITTA 2A-3: enable → créer user-profile ITTA9 (validité 130j, 09h00-16h00) → créer user abdelhamid/abdelhamid1 level 1 reenter 3 → config → board add H804ASRB slot 16.',
+    tasks: [
+      'Entrer en mode enable',
+      'Créer terminal user-profile ITTA9 (idle=130, reenter=130, 09:00-16:00)',
+      'Afficher tous les terminal user-profile',
+      'Créer utilisateur: name abdelhamid, password abdelhamid1, profile ITTA9, level 1, permitted reenter 3',
+      'Afficher les terminal users',
+      'Entrer en mode config',
+      'Ajouter la carte H804ASRB en position (slot) 0/16',
+      'Afficher les boards (display board 0)',
+    ],
+    expected: [
+      'enable',
+      'terminal user-profile add ITTA9 130 130 09:00 16:00',
+      'display terminal user-profile all',
+      'terminal user name abdelhamid abdelhamid1 abdelhamid1 ITTA9 1',
+      'display terminal user',
+      'config',
+      'board add 0/16 H804ASRB',
+      'display board 0',
+    ],
+  },
+
+  'ITTA3A1': {
+    title: 'ITTA Exam 3″A — 1) Créer un QinQ VLAN',
+    variant: 'A',
+    hints: 'ITTA 3A-1: VLAN externe 224 smart + q-in-q, port upstream 0/9/0, service-port multi-service user-vlan 30, adsl port 35, vpi=0 vci=120, rx-cttr 6 tx-cttr 6 (existants).',
+    tasks: [
+      'Créer VLAN 224 smart',
+      'Attribuer l\'attribut q-in-q au VLAN 224',
+      'Assigner port upstream 0/9/0 au VLAN 224',
+      'Créer service-port: vlan 224, adsl 0/0/35, vpi 0, vci 120, multi-service user-vlan 30, rx-cttr 6, tx-cttr 6',
+    ],
+    expected: [
+      'vlan 224 smart',
+      'vlan attrib 224 q-in-q',
+      'port vlan 224 0/9 0',
+      'service-port vlan 224 adsl 0/0/35 vpi 0 vci 120 multi-service user-vlan 30 rx-cttr 6 tx-cttr 6',
+    ],
+  },
+
+  'ITTA3A2': {
+    title: 'ITTA Exam 3″A — 2) Communication interne H.248 (2 abonnés)',
+    variant: 'A',
+    hints: 'ITTA 3A-2: interface h248 1 → abonné 1 carte ASPB port 12 (priority cat2, terminalid 61, telno 610, potslinetype del) → abonné 2 carte CAME port 12 (priority cat3, terminalid 13, telno 680, potslinetype del).',
+    tasks: [
+      'Créer interface h248 1',
+      'Quitter vers config',
+      'Entrer esl user',
+      'Ajouter abonné 1: port 0/0/12 (ASPB), vlan 1, terminalid 61, telno 610, priority cat2, potslinetype del',
+      'Ajouter abonné 2: port 0/0/12 (CAME), vlan 1, terminalid 13, telno 680, priority cat3, potslinetype del',
+      'Afficher les PSTN users',
+    ],
+    expected: [
+      'interface h248 1',
+      'quit',
+      'esl user',
+      'mgpstnuser add 0/0/12 1 terminalid 61 telno 610 priority cat2 potslinetype del',
+      'mgpstnuser add 0/0/12 1 terminalid 13 telno 680 priority cat3 potslinetype del',
+      'display mgpstnuser 0/0/12 0/0/12',
+    ],
+  },
+
+  'ITTA3A3': {
+    title: 'ITTA Exam 3″A — 3) Service ADSL (VLAN 100)',
+    variant: 'A',
+    hints: 'ITTA 3A-3: VLAN 100 smart, port upstream 0/9/0, single service, line profile 1 (existant), port ADSL 13, vpi=0 vci=60. rx-cttr 24 CIR=7500 priority 4 local-setting, tx-cttr 42 CIR=640 priority 4 local-setting.',
+    tasks: [
+      'Créer VLAN 100 smart',
+      'Assigner port upstream 0/9/0 au VLAN 100',
+      'Entrer interface adsl 0/0',
+      'Désactiver port 13',
+      'Activer port 13 avec profile-index 1',
+      'Quitter l\'interface ADSL',
+      'Créer traffic table index 24, cir 7500, priority 4, priority-policy local-setting',
+      'Créer traffic table index 42, cir 640, priority 4, priority-policy local-setting',
+      'Créer service-port: vlan 100, adsl 0/0/13, vpi 0, vci 60, single-service, rx-cttr 24, tx-cttr 42',
+    ],
+    expected: [
+      'vlan 100 smart',
+      'port vlan 100 0/9 0',
+      'interface adsl 0/0',
+      'deactivate 13',
+      'activate 13 profile-index 1',
+      'quit',
+      'traffic table ip index 24 cir 7500 priority 4 priority-policy local-setting',
+      'traffic table ip index 42 cir 640 priority 4 priority-policy local-setting',
+      'service-port vlan 100 adsl 0/0/13 vpi 0 vci 60 single-service rx-cttr 24 tx-cttr 42',
+    ],
+  },
+
+  'ITTA3A4': {
+    title: 'ITTA Exam 3″A — 3) Configurer le Service VoIP (VLAN 304)',
+    variant: 'A',
+    hints: 'ITTA 3A-4: VoIP port 0/9/0, port 2944, code text, transfer UDP, start-negotiate-version 0, interface h248 6, VLAN 304. IP MSAN 6.0.0.1/8, passerelle 6.0.0.10/8, softswitch 6.0.0.20/8.',
+    tasks: [
+      'Créer VLAN 304 standard',
+      'Assigner port upstream 0/9/0 au VLAN 304',
+      'Créer interface vlanif 304',
+      'Configurer IP 6.0.0.1 masque 8',
+      'Quitter vlanif',
+      'Ajouter route statique vers softswitch 6.0.0.20 masque 8 via passerelle 6.0.0.10',
+      'Entrer mode voip',
+      'Configurer IP media 6.0.0.1 et passerelle 6.0.0.10',
+      'Configurer IP signaling 6.0.0.1',
+      'Créer interface h248 6',
+    ],
+    expected: [
+      'vlan 304 standard',
+      'port vlan 304 0/9 0',
+      'interface vlanif 304',
+      'ip address 6.0.0.1 8',
+      'quit',
+      'ip route-static 6.0.0.20 8 6.0.0.10',
+      'voip',
+      'ip address media 6.0.0.1 6.0.0.10',
+      'ip address signaling 6.0.0.1',
+      'interface h248 6',
+    ],
+  },
+
+  'ITTA4A1': {
+    title: 'ITTA Exam 4″A — 1) TP1: Utilisateur + Carte',
+    variant: 'A',
+    hints: 'ITTA 4A-1: enable → créer user-profile ITTA8 (validité 90j, 10h00-14h00) → créer user abderrahmane/abderrahmane1 level 2 reenter 4 → config → board add H80BCAME slot 15.',
+    tasks: [
+      'Entrer en mode enable',
+      'Créer terminal user-profile ITTA8 (idle=90, reenter=90, 10:00-14:00)',
+      'Afficher tous les terminal user-profile',
+      'Créer utilisateur: name abderrahmane, password abderrahmane1, profile ITTA8, level 2, permitted reenter 4',
+      'Afficher les terminal users',
+      'Entrer en mode config',
+      'Ajouter la carte H80BCAME en position (slot) 0/15',
+      'Afficher les boards (display board 0)',
+    ],
+    expected: [
+      'enable',
+      'terminal user-profile add ITTA8 90 90 10:00 14:00',
+      'display terminal user-profile all',
+      'terminal user name abderrahmane abderrahmane1 abderrahmane1 ITTA8 2',
+      'display terminal user',
+      'config',
+      'board add 0/15 H80BCAME',
+      'display board 0',
+    ],
+  },
+
+  'ITTA4A2': {
+    title: 'ITTA Exam 4″A — 2) Service ADSL (VLAN 82)',
+    variant: 'A',
+    hints: 'ITTA 4A-2: VLAN 82 smart, port upstream 0/9/0, single service, line profile 1 (existant), port ADSL 12, vpi=0 vci=40. rx-cttr 23 CIR=9000 priority 4 local-setting, tx-cttr 41 CIR=500 priority 4 local-setting.',
+    tasks: [
+      'Créer VLAN 82 smart',
+      'Assigner port upstream 0/9/0 au VLAN 82',
+      'Entrer interface adsl 0/0',
+      'Désactiver port 12',
+      'Activer port 12 avec profile-index 1',
+      'Quitter l\'interface ADSL',
+      'Créer traffic table index 23, cir 9000, priority 4, priority-policy local-setting',
+      'Créer traffic table index 41, cir 500, priority 4, priority-policy local-setting',
+      'Créer service-port: vlan 82, adsl 0/0/12, vpi 0, vci 40, single-service, rx-cttr 23, tx-cttr 41',
+    ],
+    expected: [
+      'vlan 82 smart',
+      'port vlan 82 0/9 0',
+      'interface adsl 0/0',
+      'deactivate 12',
+      'activate 12 profile-index 1',
+      'quit',
+      'traffic table ip index 23 cir 9000 priority 4 priority-policy local-setting',
+      'traffic table ip index 41 cir 500 priority 4 priority-policy local-setting',
+      'service-port vlan 82 adsl 0/0/12 vpi 0 vci 40 single-service rx-cttr 23 tx-cttr 41',
+    ],
+  },
+
+  'ITTA5A1': {
+    title: 'ITTA Exam 5″A — 1) Créer un Stacking VLAN (VLAN 204)',
+    variant: 'A',
+    hints: 'ITTA 5A-1: VLAN externe 204 smart + stacking, port upstream 0/9/0, multi-service pppoe, rx-cttr 5 tx-cttr 5 (existants), vpi=0 vci=70, port ADSL 21. stacking label → VLAN interne 80.',
+    tasks: [
+      'Créer VLAN 204 smart',
+      'Attribuer l\'attribut stacking au VLAN 204',
+      'Assigner le port upstream 0/9/0 au VLAN 204',
+      'Créer service-port: vlan 204, adsl 0/0/21, vpi 0, vci 70, multi-service user-encap pppoe, rx-cttr 5, tx-cttr 5',
+      'Afficher le service-port du port 0/0/21 (relever l\'index)',
+      'Appliquer stacking label service-port index 1, VLAN interne 80',
+    ],
+    expected: [
+      'vlan 204 smart',
+      'vlan attrib 204 stacking',
+      'port vlan 204 0/9 0',
+      'service-port vlan 204 adsl 0/0/21 vpi 0 vci 70 multi-service user-encap pppoe rx-cttr 5 tx-cttr 5',
+      'display service-port port 0/0/21',
+      'stacking label service-port 1 80',
+    ],
+  },
+
+  'ITTA5A2': {
+    title: 'ITTA Exam 5″A — 2) Service ADSL (VLAN 81)',
+    variant: 'A',
+    hints: 'ITTA 5A-2: VLAN 81 smart, port upstream 0/9/0, single service, line profile 1 (existant), port ADSL 11, vpi=0 vci=85. rx-cttr 22 CIR=8000 priority 5 local-setting, tx-cttr 40 CIR=640 priority 5 local-setting.',
+    tasks: [
+      'Créer VLAN 81 smart',
+      'Assigner port upstream 0/9/0 au VLAN 81',
+      'Entrer interface adsl 0/0',
+      'Désactiver port 11',
+      'Activer port 11 avec profile-index 1',
+      'Quitter l\'interface ADSL',
+      'Créer traffic table index 22, cir 8000, priority 5, priority-policy local-setting',
+      'Créer traffic table index 40, cir 640, priority 5, priority-policy local-setting',
+      'Créer service-port: vlan 81, adsl 0/0/11, vpi 0, vci 85, single-service, rx-cttr 22, tx-cttr 40',
+    ],
+    expected: [
+      'vlan 81 smart',
+      'port vlan 81 0/9 0',
+      'interface adsl 0/0',
+      'deactivate 11',
+      'activate 11 profile-index 1',
+      'quit',
+      'traffic table ip index 22 cir 8000 priority 5 priority-policy local-setting',
+      'traffic table ip index 40 cir 640 priority 5 priority-policy local-setting',
+      'service-port vlan 81 adsl 0/0/11 vpi 0 vci 85 single-service rx-cttr 22 tx-cttr 40',
+    ],
+  },
+
+  'ITTA5A3': {
+    title: 'ITTA Exam 5″A — 3) TP1: Utilisateur + Carte',
+    variant: 'A',
+    hints: 'ITTA 5A-3: enable → créer user-profile ITTA7 (validité 150j, 08h00-15h00) → créer user abdenour/abdenour1 level 1 reenter 2 → config → board add H80BCVME slot 14.',
+    tasks: [
+      'Entrer en mode enable',
+      'Créer terminal user-profile ITTA7 (idle=150, reenter=150, 08:00-15:00)',
+      'Afficher tous les terminal user-profile',
+      'Créer utilisateur: name abdenour, password abdenour1, profile ITTA7, level 1, permitted reenter 2',
+      'Afficher les terminal users',
+      'Entrer en mode config',
+      'Ajouter la carte H80BCVME en position (slot) 0/14',
+      'Afficher les boards (display board 0)',
+    ],
+    expected: [
+      'enable',
+      'terminal user-profile add ITTA7 150 150 08:00 15:00',
+      'display terminal user-profile all',
+      'terminal user name abdenour abdenour1 abdenour1 ITTA7 1',
+      'display terminal user',
+      'config',
+      'board add 0/14 H80BCVME',
+      'display board 0',
+    ],
+  },
+};
+
+// ============================================================
+// TP MENU
+// ============================================================
+function toggleTPMenu(n) {
+  const ids = [1,2,3,4,'ex'];
+  ids.forEach(i => {
+    const dd = document.getElementById('tp-dd-'+i);
+    if (!dd) return;
+    if (i===n) dd.classList.toggle('open');
+    else dd.classList.remove('open');
+  });
+}
+
+document.addEventListener('click', e => {
+  if (!e.target.closest('.tp-group')) {
+    document.querySelectorAll('.tp-dropdown').forEach(d=>d.classList.remove('open'));
+  }
+  if (!e.target.closest('#autocomplete') && e.target !== document.getElementById('cmd-input')) hideAC();
+});
+
+function selectExercise(tp, sub) {
+  const key = tp + sub;
+  const ex = EXERCISES[key];
+  if (!ex) return;
+  document.querySelectorAll('.tp-dropdown').forEach(d=>d.classList.remove('open'));
+  document.querySelectorAll('.tp-btn').forEach(b=>b.classList.remove('active'));
+  const grpId = (tp==='EX' || tp.startsWith('ITTA')) ? 'ex' : tp;
+  const grpBtn = document.querySelector(`#tp-grp-${grpId} .tp-btn`);
+  if (grpBtn) grpBtn.classList.add('active');
+
+  pendingExercise = ex;
+  currentExercise = ex;
+  exerciseLog = [];
+
+  // Auto-switch variant
+  if (ex.variant && ex.variant !== state.variant) {
+    setVariant(ex.variant);
+  }
+
+  document.getElementById('modal-title').textContent = '⚡ ' + ex.title;
+  document.getElementById('modal-start-btn').style.display = '';
+  document.getElementById('modal-body').innerHTML = `
+    <div class="modal-task"><b>Exercise:</b> ${ex.title}</div>
+    <div class="modal-task">
+      <b>Tasks to complete:</b><br><br>
+      ${ex.tasks.map((t,i)=>`<div style="margin-bottom:4px;"><span style="color:var(--amber);">${i+1}.</span> ${t}</div>`).join('')}
+    </div>
+    <div class="modal-task" style="color:var(--text-dim);font-size:10px;">
+      Commands will be logged. Click "Check Answers" when done.
+    </div>
+  `;
+  document.getElementById('modal-overlay').classList.add('show');
+}
+
+function startExercise() {
+  closeModal();
+  const ex = currentExercise;
+  if (!ex) return;
+  exerciseLog = [];
+  document.getElementById('exercise-box').innerHTML = `
+    <div class="ex-title">⬡ ${ex.title.toUpperCase()}</div>
+    ${ex.tasks.map(t=>`<div class="ex-task">${t}</div>`).join('')}
+  `;
+  // Update hints
+  document.getElementById('hints-box').innerHTML = '💡 <b>Hint:</b> ' + (ex.hints || 'Complete the tasks shown.');
+  switchTab('exercise');
+  appendLine('amber','');
+  appendLine('amber',`  ─── EXERCISE STARTED: ${ex.title} ───`);
+  appendLine('dim','  Complete the tasks listed in the Exercise panel.');
+  appendLine('dim','  Type "check" when done, or click ✓ Correction.');
+  appendLine('dim','');
+}
+
+// ============================================================
+// VARIANT TOGGLE
+// ============================================================
+function toggleVariant() {
+  setVariant(state.variant === 'A' ? 'B' : 'A');
+}
+
+function setVariant(v) {
+  state.variant = v;
+  document.getElementById('variant-toggle').textContent = '⇄ MSAN_' + v;
+  document.getElementById('variant-toggle').classList.toggle('b-active', v==='B');
+  document.getElementById('cb-device').textContent = 'MSAN_' + v;
+  // Update state panel
+  document.querySelector('#state-variant-disp span').textContent = 'MSAN_' + v;
+  updatePrompt();
+}
+
+// ============================================================
+// BOOT & LOGIN
+// ============================================================
+function boot() {
+  const out = document.getElementById('output');
+  out.innerHTML = '';
+  state.loginPhase = 'username';
+  state.loginAttempts = 0;
+  state.loginUsername = '';
+  state.loggedIn = false;
+  state.enableMode = false;
+  state.mode = 'user';
+
+  const input = document.getElementById('cmd-input');
+  input.type = 'text';
+
+  const lines = [
+    {t:'dim',s:''},
+    {t:'bold',s:'  ┌─────────────────────────────────────────────────────┐'},
+    {t:'bold',s:'  │     Huawei SmartAX MA5600T                         │'},
+    {t:'bold',s:'  │     Copyright (C) 2024 Huawei Technologies          │'},
+    {t:'bold',s:'  └─────────────────────────────────────────────────────┘'},
+    {t:'dim', s:''},
+    {t:'info', s:'  Booting SmartAX MA5600T Series...'},
+    {t:'output',s:'  Board 0/0: Main Control Board      [ OK ]'},
+    {t:'output',s:'  Board 0/3: ADSL2+ Line Board 32p  [ OK ]'},
+    {t:'output',s:'  Board 0/9: Uplink Board GE 8p      [ OK ]'},
+    {t:'dim',  s:''},
+    {t:'success',s:'  System ready. Telnet session established.'},
+    {t:'dim',  s:''},
+  ];
+  let i = 0;
+  function next() {
+    if (i >= lines.length) {
+      showLoginPrompt();
+      updatePrompt();
+      return;
+    }
+    const b = lines[i++];
+    appendLine(b.t, b.s);
+    setTimeout(next, 20);
+  }
+  next();
+}
+
+function showLoginPrompt() {
+  state.loginPhase = 'username';
+  document.getElementById('prompt-label').textContent = 'Login: ';
+  document.getElementById('cmd-input').type = 'text';
+  document.getElementById('mode-label').textContent = 'login';
+}
+
+// ============================================================
+// TERMINAL OUTPUT
+// ============================================================
+function appendLine(cls, text) {
+  const out = document.getElementById('output');
+  const d = document.createElement('div');
+  d.className = 'line ' + cls;
+  d.textContent = text;
+  out.appendChild(d);
+  out.scrollTop = out.scrollHeight;
+}
+function appendLines(cls, lines) { lines.forEach(l=>appendLine(cls,l)); }
+function echoCmd(cmd) {
+  const lbl = document.getElementById('prompt-label').textContent;
+  // Don't echo password
+  if (state.loginPhase === 'password' || state.loginPhase === 'enable-password') {
+    appendLine('prompt', lbl + '********');
+  } else {
+    appendLine('prompt', lbl + cmd);
+  }
+}
+
+// ============================================================
+// PROMPT
+// ============================================================
+function getDeviceName() { return 'Lab1_MSAN_' + state.variant; }
+
+function updatePrompt() {
+  const dev = getDeviceName();
+  let label = '';
+  let modeStr = '';
+
+  if (!state.loggedIn) {
+    if (state.loginPhase === 'username') { label = 'Login: '; modeStr = 'login'; }
+    else { label = 'Password: '; modeStr = 'login'; }
+  } else {
+    switch (state.mode) {
+      case 'user':       label = dev + '>'; modeStr = 'user'; break;
+      case 'privileged': label = dev + '#'; modeStr = 'privileged'; break;
+      case 'config':     label = dev + '(config)#'; modeStr = 'config'; break;
+      case 'config-if-adsl': label = dev + '(config-if-adsl-' + (state.currentIface||'') + ')#'; modeStr = 'if-adsl'; break;
+      case 'config-voip': label = dev + '(config-voip)#'; modeStr = 'config-voip'; break;
+      case 'config-mg':   label = dev + '(config-if-' + (state.currentIface||'h248') + ')#'; modeStr = 'config-mg'; break;
+      case 'config-if-vlanif': label = dev + '(config-if-vlanif' + (state.currentIface?state.currentIface.split(' ')[1]:'') + ')#'; modeStr = 'config-vlanif'; break;
+      case 'config-esl-user': label = dev + '(config-esl-user)#'; modeStr = 'esl-user'; break;
+      default: label = dev + '('+state.mode+')#'; modeStr = state.mode;
+    }
+  }
+  document.getElementById('prompt-label').textContent = label;
+  document.getElementById('mode-label').textContent = modeStr;
+  document.getElementById('state-mode-disp').textContent = modeStr;
+}
+
+// ============================================================
+// MAIN INPUT HANDLER
+// ============================================================
+function processCommand(raw) {
+  const cmd = raw.trim();
+
+  // Handle login phases
+  if (!state.loggedIn) {
+    handleLogin(cmd, raw);
+    return;
+  }
+
+  if (state.loginPhase === 'enable-password') {
+    handleEnablePassword(cmd);
+    return;
+  }
+
+  if (!cmd) { appendLine('prompt', document.getElementById('prompt-label').textContent); return; }
+
+  echoCmd(cmd);
+  state.cmdCount++;
+  document.getElementById('cmd-count').textContent = state.cmdCount;
+  exerciseLog.push(cmd);
+
+  const parts = cmd.split(/\s+/);
+  const p0 = parts[0].toLowerCase();
+
+  // Universal commands
+  if (cmd.toLowerCase() === 'clear' || cmd.toLowerCase() === 'cls') {
+    document.getElementById('output').innerHTML = '';
+    updatePrompt();
+    return;
+  }
+  if (cmd.trim() === '?' || cmd.toLowerCase() === 'help') { showHelp(); return; }
+  if (cmd.toLowerCase() === 'check') { openCorrection(); return; }
+  if (p0 === 'save') { doSave(); return; }
+
+  // Mode restrictions
+  if (state.mode === 'user') {
+    handleUserMode(cmd, parts, p0);
+    updateState();
+    return;
+  }
+
+  if (p0 === 'quit' || p0 === 'exit' || p0 === 'return') { doQuit(); updateState(); return; }
+  if (p0 === 'display') { doDisplay(parts); updateState(); return; }
+
+  if (state.mode === 'privileged') {
+    handlePrivMode(cmd, parts, p0);
+  } else if (state.mode === 'config') {
+    configModeCmd(cmd, parts, p0);
+  } else {
+    ifModeCmd(cmd, parts, p0);
+  }
+
+  updateState();
+}
+
+// ============================================================
+// LOGIN HANDLING
+// ============================================================
+function handleLogin(cmd, raw) {
+  if (state.loginPhase === 'username') {
+    appendLine('prompt', 'Login: ' + cmd);
+    state.loginUsername = cmd.trim();
+    state.loginPhase = 'password';
+    document.getElementById('cmd-input').type = 'password';
+    updatePrompt();
+    return;
+  }
+  if (state.loginPhase === 'password') {
+    appendLine('prompt', 'Password: ********');
+    const cred = CREDS[state.variant];
+    const ok = (state.loginUsername.toLowerCase() === cred.username.toLowerCase() &&
+                cmd.trim() === cred.password);
+    if (ok) {
+      state.loggedIn = true;
+      state.loginPhase = 'logged-in';
+      state.loginAttempts = 0;
+      document.getElementById('cmd-input').type = 'text';
+      // Show creds bar
+      document.getElementById('creds-bar').classList.add('visible');
+      document.getElementById('cb-user').textContent = cred.username;
+      document.getElementById('cb-pass').textContent = cred.password;
+      document.getElementById('cb-profile').textContent = cred.profile;
+      document.getElementById('cb-level').textContent = cred.level;
+      document.getElementById('cb-device').textContent = 'MSAN_' + state.variant;
+
+      appendLine('dim','');
+      appendLine('success', `  Welcome ${cred.username} — Last login: today`);
+      appendLine('dim',     `  Type 'enable' to enter privileged mode.`);
+      appendLine('dim','');
+      state.mode = 'user';
+    } else {
+      state.loginAttempts++;
+      appendLine('error','  % Authentication failed. Try again.');
+      if (state.loginAttempts >= 3) {
+        appendLine('error','  % Maximum login attempts reached. Disconnected.');
+        setTimeout(() => {
+          state.loggedIn = false;
+          state.loginAttempts = 0;
+          state.loginUsername = '';
+          state.loginPhase = 'username';
+          document.getElementById('cmd-input').type = 'text';
+          document.getElementById('creds-bar').classList.remove('visible');
+          boot();
+        }, 3000);
+        return;
+      }
+      state.loginPhase = 'username';
+      document.getElementById('cmd-input').type = 'text';
+    }
+    updatePrompt();
+    return;
+  }
+}
+
+function handleEnablePassword(cmd) {
+  appendLine('prompt', 'Password: ********');
+  const ok = cmd.trim() === ENABLE_PASS[state.variant];
+  if (ok) {
+    state.loginPhase = 'logged-in';
+    state.mode = 'privileged';
+    appendLine('success','  Privileged mode enabled.');
+  } else {
+    appendLine('error','  % Authentication failed.');
+    state.mode = 'user';
+  }
+  state.loginPhase = 'logged-in';
+  document.getElementById('cmd-input').type = 'text';
+  updatePrompt();
+}
+
+// ============================================================
+// USER MODE
+// ============================================================
+function handleUserMode(cmd, parts, p0) {
+  echoCmd(cmd);
+  state.cmdCount++;
+  document.getElementById('cmd-count').textContent = state.cmdCount;
+  exerciseLog.push(cmd);
+
+  if (p0 === 'enable') {
+    appendLine('output','Password: ');
+    state.loginPhase = 'enable-password';
+    document.getElementById('cmd-input').type = 'password';
+    updatePrompt();
+    return;
+  }
+  if (p0 === 'display') { doDisplay(parts); return; }
+  if (p0 === 'idle-timeout') {
+    const n = parseInt(parts[1]);
+    if (isNaN(n)) { appendLine('error','  % Syntax: Idle-timeout <minutes>'); return; }
+    state.idleTimeout = n;
+    appendLine('success',`  Idle timeout set to ${n} minute(s).`);
+    return;
+  }
+  // Config-level commands blocked in user mode
+  const configOnlyCmds = ['vlan','port','service-port','traffic','adsl','interface','board','stacking','voip','esl','ip','undo','mgpstnuser'];
+  if (configOnlyCmds.includes(p0)) {
+    appendLine('error','  % Command not allowed in user mode. Type \'enable\' first.');
+    return;
+  }
+  appendLine('error',`  % Unknown command: "${parts[0]}". Type ? for help.`);
+}
+
+// ============================================================
+// PRIVILEGED MODE
+// ============================================================
+function handlePrivMode(cmd, parts, p0) {
+  if (p0 === 'config') {
+    state.mode = 'config';
+    appendLine('success','  Enter system view, return user view with Ctrl+Z.');
+    updatePrompt();
+    return;
+  }
+  if (p0 === 'display') { doDisplay(parts); return; }
+  if (p0 === 'idle-timeout') {
+    const n = parseInt(parts[1]);
+    if (isNaN(n)) { appendLine('error','  % Syntax: Idle-timeout <minutes>'); return; }
+    state.idleTimeout = n;
+    appendLine('success',`  Idle timeout set to ${n} minute(s).`);
+    return;
+  }
+  if (p0 === 'terminal') { handleTerminalCmd(parts); return; }
+  appendLine('error',`  % Unknown command: "${parts[0]}". Type ? or 'config' to enter config mode.`);
+}
+
+function doQuit() {
+  if (state.mode === 'config') {
+    state.mode = 'privileged';
+    state.currentIface = null;
+    appendLine('output','  Return to privileged mode.');
+  } else if (state.mode === 'privileged') {
+    state.mode = 'user';
+    appendLine('output','  Return to user mode.');
+  } else if (state.mode !== 'user') {
+    state.mode = 'config';
+    state.currentIface = null;
+    appendLine('output','  Return to config mode.');
+  }
+  updatePrompt();
+}
+
+// ============================================================
+// CONFIG MODE COMMANDS
+// ============================================================
+function configModeCmd(cmd, parts, p0) {
+  // interface
+  if (p0 === 'interface') {
+    if (parts.length < 3) { appendLine('error','  % Incomplete command.'); return; }
+    const ifType = parts[1].toLowerCase();
+    const ifNum = parts[2];
+    if (ifType === 'adsl') {
+      state.mode = 'config-if-adsl';
+      state.currentIface = 'adsl ' + ifNum;
+      appendLine('output',`  Enter ADSL interface ${ifNum}`);
+    } else if (ifType === 'voip') {
+      state.mode = 'config-voip';
+      state.currentIface = 'voip ' + ifNum;
+      appendLine('output',`  Enter VoIP interface ${ifNum}`);
+    } else if (ifType === 'h248') {
+      state.mode = 'config-mg';
+      state.currentIface = 'h248 ' + ifNum;
+      if (!state.mgInterfaces[ifNum]) state.mgInterfaces[ifNum] = {name:null, digitmap:null, swParam:null, shutdown:false};
+      appendLine('output',`  Are you sure to add MG interface? [Y|N]:y`);
+      appendLine('output',`  Enter H.248 MG interface ${ifNum}`);
+    } else if (ifType === 'vlanif') {
+      state.mode = 'config-if-vlanif';
+      state.currentIface = 'vlanif ' + ifNum;
+      appendLine('output',`  Enter VLAN interface ${ifNum}`);
+    } else {
+      appendLine('error',`  % Unknown interface type: ${ifType}`);
+    }
+    updatePrompt(); return;
+  }
+
+  // vlan (create)
+  if (p0 === 'vlan' && parts[1] !== 'attrib' && parts[1] !== 'desc') {
+    if (parts.length < 2) { appendLine('error','  % Incomplete command.'); return; }
+    const vid = parseInt(parts[1]);
+    if (isNaN(vid)||vid<1||vid>4094) { appendLine('error','  % Invalid VLAN ID (1-4094).'); return; }
+    const vtype = parts[2] ? parts[2].toLowerCase() : 'standard';
+    state.vlans[vid] = state.vlans[vid] || {type:vtype, port:null, portIdx:null, attrib:null, desc:null};
+    state.vlans[vid].type = vtype;
+    appendLine('success',`  VLAN ${vid} created. Type: ${vtype}`);
+    return;
+  }
+
+  // vlan attrib
+  if (p0 === 'vlan' && parts[1] === 'attrib') {
+    const vid = parseInt(parts[2]);
+    const attrib = parts[3] ? parts[3].toLowerCase() : null;
+    if (!state.vlans[vid]) { appendLine('error',`  % VLAN ${vid||'?'} does not exist.`); return; }
+    if (attrib !== 'stacking' && attrib !== 'q-in-q') { appendLine('error','  % Syntax: vlan attrib <id> stacking|q-in-q'); return; }
+    state.vlans[vid].attrib = attrib;
+    appendLine('success',`  VLAN ${vid} attribute set to: ${attrib}`);
+    return;
+  }
+
+  // vlan desc
+  if (p0 === 'vlan' && parts[1] === 'desc') {
+    const vid = parseInt(parts[2]);
+    if (!state.vlans[vid]) { appendLine('error',`  % VLAN ${vid||'?'} does not exist.`); return; }
+    const descIdx = parts.findIndex(p=>p.toLowerCase()==='description');
+    const desc = descIdx!==-1 ? parts.slice(descIdx+1).join(' ') : parts.slice(3).join(' ');
+    state.vlans[vid].desc = desc;
+    appendLine('success',`  VLAN ${vid} description set to: "${desc}"`);
+    return;
+  }
+
+  // undo vlan
+  if (p0 === 'undo' && parts[1]==='vlan') {
+    const vid = parseInt(parts[2]);
+    if (!vid || !state.vlans[vid]) { appendLine('error',`  % VLAN ${vid||'?'} does not exist.`); return; }
+    delete state.vlans[vid];
+    state.servicePorts = state.servicePorts.filter(sp=>sp.vlan!=vid);
+    appendLine('success',`  VLAN ${vid} deleted.`);
+    return;
+  }
+
+  // port vlan
+  if (p0 === 'port' && parts[1]==='vlan') {
+    if (parts.length < 5) { appendLine('error','  % Incomplete. Syntax: port vlan <vid> <slot/port> <port_idx>'); return; }
+    const vid = parseInt(parts[2]);
+    if (!state.vlans[vid]) { appendLine('error',`  % VLAN ${vid} does not exist.`); return; }
+    state.vlans[vid].port = parts[3];
+    state.vlans[vid].portIdx = parts[4];
+    appendLine('success',`  Port ${parts[3]}/${parts[4]} assigned to VLAN ${vid}.`);
+    return;
+  }
+
+  // undo port vlan
+  if (p0 === 'undo' && parts[1]==='port' && parts[2]==='vlan') {
+    const vid = parseInt(parts[3]);
+    if (!vid || !state.vlans[vid]) { appendLine('error',`  % VLAN ${vid||'?'} does not exist.`); return; }
+    state.vlans[vid].port = null; state.vlans[vid].portIdx = null;
+    appendLine('success',`  Port removed from VLAN ${vid}.`);
+    return;
+  }
+
+  // traffic table
+  if (p0 === 'traffic') {
+    const idx = parseParamAfter(parts,'index');
+    const cir = parseParamAfter(parts,'cir');
+    const pri = parseParamAfter(parts,'priority');
+    if (!idx||!cir) { appendLine('error','  % Syntax: traffic table ip index <n> cir <kbps> priority <p> priority-policy local-setting'); return; }
+    const idxN=parseInt(idx), cirN=parseInt(cir), priN=parseInt(pri||'0');
+    state.trafficTables[idxN] = {cir:cirN, priority:priN, policy:'local-setting'};
+    appendLine('success',`  Traffic table ${idxN} created. CIR=${cirN}kbps Priority=${priN}`);
+    return;
+  }
+
+  // undo traffic table
+  if (p0 === 'undo' && parts[1]==='traffic') {
+    const idx = parseInt(parts[5]);
+    if (isNaN(idx)||!state.trafficTables[idx]) { appendLine('error',`  % Traffic table ${idx||'?'} not found.`); return; }
+    delete state.trafficTables[idx];
+    appendLine('success',`  Traffic table ${idx} deleted.`);
+    return;
+  }
+
+  // service-port
+  if (p0 === 'service-port') { doServicePort(parts); return; }
+
+  // undo service-port
+  if (p0 === 'undo' && parts[1]==='service-port') {
+    const idx = parseInt(parts[2]);
+    if (isNaN(idx)) { appendLine('error','  % Specify service-port index.'); return; }
+    const i = state.servicePorts.findIndex(s=>s.index===idx);
+    if (i===-1) { appendLine('error',`  % Service-port ${idx} not found.`); return; }
+    state.servicePorts.splice(i,1);
+    appendLine('success',`  Service-port ${idx} deleted.`);
+    return;
+  }
+
+  // adsl line profile
+  if (p0 === 'adsl' && parts[1]==='line' && parts[2]==='profile' && parts[3]==='add') {
+    const pidx = parseInt(parts[4]);
+    if (isNaN(pidx)) { appendLine('error','  % Specify profile index.'); return; }
+    if (state.adslProfiles[pidx]) { appendLine('warn',`  % Profile ${pidx} already exists.`); return; }
+    state.adslProfiles[pidx] = {added:true, type:'ADSL2+'};
+    appendLine('success',`  ADSL line profile ${pidx} created.`);
+    return;
+  }
+
+  // undo adsl line profile
+  if (p0 === 'undo' && parts[1]==='adsl') {
+    const pidx = parseInt(parts[4]);
+    if (!state.adslProfiles[pidx]) { appendLine('error',`  % Profile ${pidx} not found.`); return; }
+    delete state.adslProfiles[pidx];
+    appendLine('success',`  ADSL profile ${pidx} deleted.`);
+    return;
+  }
+
+  // idle-timeout
+  if (p0 === 'idle-timeout') {
+    const n = parseInt(parts[1]);
+    if (isNaN(n)) { appendLine('error','  % Syntax: Idle-timeout <minutes>'); return; }
+    state.idleTimeout = n;
+    appendLine('success',`  Idle timeout set to ${n} minute(s).`);
+    return;
+  }
+
+  // board
+  if (p0 === 'board') {
+    if (parts[1]==='add') {
+      const slot=parts[2], type=parts[3];
+      if (!slot||!type) { appendLine('error','  % Syntax: board add <slot> <type>'); return; }
+      state.boards[slot] = type;
+      appendLine('success',`  Board ${type} added in slot ${slot}.`);
+      return;
+    }
+    if (parts[1]==='delete') {
+      const slot=parts[2];
+      if (!state.boards[slot]) { appendLine('error',`  % No board found in slot ${slot}.`); return; }
+      delete state.boards[slot];
+      appendLine('success',`  Board in slot ${slot} deleted.`);
+      return;
+    }
+    appendLine('error','  % Syntax: board add <slot> <type> | board delete <slot>');
+    return;
+  }
+
+  // stacking label
+  if (p0 === 'stacking' && parts[1]==='label' && parts[2]==='service-port') {
+    const idx=parseInt(parts[3]), innerVlan=parts[4];
+    const sp = state.servicePorts.find(s=>s.index===idx);
+    if (!sp) { appendLine('error',`  % Service-port ${idx||'?'} not found.`); return; }
+    if (!innerVlan) { appendLine('error','  % Syntax: stacking label service-port <index> <inner-vlan>'); return; }
+    sp.stackingLabel = innerVlan;
+    appendLine('success',`  Stacking label set on service-port ${idx}: inner VLAN ${innerVlan}.`);
+    return;
+  }
+
+  // ip route-static
+  if (p0 === 'ip' && parts[1]==='route-static') {
+    const dest=parts[2], mask=parts[3], gw=parts[4];
+    if (!dest||!mask||!gw) { appendLine('error','  % Syntax: ip route-static <dest> <mask> <gw>'); return; }
+    state.routes.push({dest, mask, gateway:gw});
+    appendLine('success',`  Static route added: ${dest}/${mask} → ${gw}`);
+    return;
+  }
+  if (p0 === 'undo' && parts[1]==='ip' && parts[2]==='route-static') {
+    const dest=parts[3];
+    const i = state.routes.findIndex(r=>r.dest===dest);
+    if (i===-1) { appendLine('error',`  % Route to ${dest||'?'} not found.`); return; }
+    state.routes.splice(i,1);
+    appendLine('success',`  Route to ${dest} removed.`);
+    return;
+  }
+
+  // undo interface (h248 / vlanif)
+  if (p0 === 'undo' && parts[1]==='interface') {
+    const ifType = parts[2] ? parts[2].toLowerCase() : '';
+    const ifNum = parts[3];
+    if (ifType==='h248') {
+      if (!state.mgInterfaces[ifNum]) { appendLine('error',`  % MG interface ${ifNum||'?'} not found.`); return; }
+      delete state.mgInterfaces[ifNum];
+      appendLine('success',`  MG interface h248 ${ifNum} removed.`);
+      return;
+    }
+    if (ifType==='vlanif') {
+      if (!state.vlanifs[ifNum]) { appendLine('error',`  % VLAN interface ${ifNum||'?'} not found.`); return; }
+      delete state.vlanifs[ifNum];
+      appendLine('success',`  VLAN interface ${ifNum} removed.`);
+      return;
+    }
+    appendLine('error',`  % Cannot undo interface ${ifType} ${ifNum||''}.`);
+    return;
+  }
+
+  // undo ip address (voip media/signaling — when in config mode after undo interface)
+  if (p0 === 'undo' && parts[1]==='ip' && parts[2]==='address') {
+    const addrType = parts[3];
+    if (addrType==='media') { state.voip.media=null; appendLine('success','  Media IP address removed.'); }
+    else if (addrType==='signaling') { state.voip.signaling=null; appendLine('success','  Signaling IP address removed.'); }
+    else { appendLine('error',`  % Unknown address type: ${addrType}`); }
+    return;
+  }
+
+  // terminal user-profile
+  if (p0 === 'terminal' && parts[1]==='user-profile') { handleTerminalProfileCmd(parts); return; }
+
+  // terminal user name
+  if (p0 === 'terminal' && parts[1]==='user' && parts[2]==='name') { handleTerminalUserCmd(parts); return; }
+
+  // undo terminal user name
+  if (p0 === 'undo' && parts[1]==='terminal') {
+    const username=parts[4];
+    if (!state.terminalUsers[username]) { appendLine('error',`  % User "${username||'?'}" not found.`); return; }
+    delete state.terminalUsers[username];
+    appendLine('success',`  User "${username}" deleted.`);
+    return;
+  }
+
+  // esl user
+  if (p0 === 'esl' && parts[1]==='user') {
+    state.mode = 'config-esl-user';
+    state.currentIface = 'esl-user';
+    appendLine('output','  Enter ESL user configuration mode.');
+    updatePrompt(); return;
+  }
+
+  // voip
+  if (p0 === 'voip') {
+    if (!parts[1]) {
+      state.mode = 'config-voip';
+      state.currentIface = 'voip';
+      appendLine('output','  Enter VoIP configuration mode.');
+      updatePrompt(); return;
+    }
+  }
+
+  // sip
+  if (p0 === 'sip') { doSipCommand(parts); return; }
+  if (p0 === 'undo' && parts[1]==='sip') {
+    if (parts[2]==='user') {
+      const port=parts[3];
+      const i = state.sipUsers.findIndex(u=>u.port===port);
+      if (i===-1) { appendLine('error',`  % SIP user on ${port} not found.`); return; }
+      state.sipUsers.splice(i,1);
+      appendLine('success',`  SIP user on ${port} removed.`);
+    }
+    return;
+  }
+
+  // enable (already handled but might be typed in config)
+  if (p0 === 'enable') {
+    appendLine('warn','  % Already in privileged/config mode.');
+    return;
+  }
+
+  appendLine('error',`  % Unknown command: "${parts[0]}". Type ? for help.`);
+}
+
+// ============================================================
+// TERMINAL USER PROFILE / USER COMMANDS
+// ============================================================
+function handleTerminalCmd(parts) {
+  const p1 = parts[1] ? parts[1].toLowerCase() : '';
+  if (p1 === 'user-profile') { handleTerminalProfileCmd(parts); return; }
+  if (p1 === 'user') { handleTerminalUserCmd(parts); return; }
+  appendLine('error','  % Syntax: terminal user-profile add|del <name> ... | terminal user name ...');
+}
+
+function handleTerminalProfileCmd(parts) {
+  // terminal user-profile add <name> <idle> <reenter> <start> <end>
+  if (parts[2]==='add') {
+    const name = parts[3];
+    if (!name) { appendLine('error','  % Syntax: terminal user-profile add <name> <idle> <reenter> <start> <end>'); return; }
+    const idle = parts[4] || '30';
+    const reenter = parts[5] || '30';
+    const start = parts[6] || '08:00';
+    const end = parts[7] || '18:00';
+    if (state.userProfiles[name]) { appendLine('warn',`  % Profile "${name}" already exists.`); return; }
+    state.userProfiles[name] = {idle, reenter, start, end};
+    appendLine('success',`  User profile "${name}" added. (idle=${idle} reenter=${reenter} ${start}–${end})`);
+    return;
+  }
+  if (parts[2]==='delete' || parts[2]==='del') {
+    const name = parts[3];
+    if (!state.userProfiles[name]) { appendLine('error',`  % Profile "${name||'?'}" not found.`); return; }
+    delete state.userProfiles[name];
+    appendLine('success',`  User profile "${name}" deleted.`);
+    return;
+  }
+  appendLine('error','  % Syntax: terminal user-profile add|del <name>');
+}
+
+function handleTerminalUserCmd(parts) {
+  // terminal user name <user> <pass> <confirm> <profile> <level>
+  const username = parts[3];
+  const password = parts[4];
+  const confirm  = parts[5];
+  const profile  = parts[6];
+  const level    = parts[7] || '2';
+  if (!username) { appendLine('error','  % Syntax: terminal user name <username> <pass> <confirm> <profile> <level>'); return; }
+  if (password !== confirm) { appendLine('error','  % Passwords do not match.'); return; }
+  if (profile && !state.userProfiles[profile]) { appendLine('warn',`  % Warning: user-profile "${profile}" does not exist.`); }
+  state.terminalUsers[username] = {password, profile: profile||'(none)', level};
+  appendLine('success',`  User "${username}" created. profile=${profile||'(none)'} level=${level}`);
+}
+
+// ============================================================
+// INTERFACE MODE COMMANDS
+// ============================================================
+function ifModeCmd(cmd, parts, p0) {
+  if (p0 === 'quit' || p0 === 'return' || p0 === 'exit') { doQuit(); return; }
+  if (p0 === 'display') { doDisplay(parts); return; }
+
+  // ADSL interface
+  if (state.mode === 'config-if-adsl') {
+    if (p0 === 'activate') {
+      const portN = parts[1];
+      // Support both "profile index <n>" and "profile-index <n>"
+      let profileIdx = parseParamAfter(parts,'profile-index') || parseParamAfter(parts,'index');
+      if (!portN||!profileIdx) { appendLine('error','  % Syntax: activate <port> profile-index <n>'); return; }
+      const pidx = parseInt(profileIdx);
+      if (!state.adslProfiles[pidx]) { appendLine('error',`  % Profile ${pidx} does not exist.`); return; }
+      const fullPort = state.currentIface.split(' ')[1] + '/' + portN;
+      state.adslActivations[fullPort] = {profile:pidx, active:true};
+      appendLine('success',`  Port ${fullPort} activated with profile ${pidx}.`);
+      setTimeout(()=>appendLine('output',`  ADSL port ${fullPort} sync... SNR=22dB ATN=18dB Rate=8192/640kbps`),400);
+      return;
+    }
+    if (p0 === 'deactivate') {
+      const portN = parts[1];
+      const fullPort = state.currentIface.split(' ')[1] + '/' + portN;
+      if (state.adslActivations[fullPort]) state.adslActivations[fullPort].active = false;
+      appendLine('success',`  Port ${fullPort} deactivated.`);
+      return;
+    }
+    appendLine('error',`  % Unknown ADSL command: "${parts[0]}"`);
+    return;
+  }
+
+  // VoIP interface
+  if (state.mode === 'config-voip') {
+    if (p0 === 'ip' && parts[1]==='address') {
+      const addrType=parts[2], ip=parts[3];
+      if (!ip) { appendLine('error','  % Incomplete command.'); return; }
+      if (!isValidIP(ip)) { appendLine('error',`  % Invalid IP: ${ip}`); return; }
+      if (addrType==='media') { state.voip.media=ip; appendLine('success',`  Media IP set to ${ip}`); }
+      else if (addrType==='signaling') { state.voip.signaling=ip; appendLine('success',`  Signaling IP set to ${ip}`); }
+      else { appendLine('error',`  % Unknown address type: ${addrType}`); }
+      return;
+    }
+    if (p0 === 'undo' && parts[1]==='ip' && parts[2]==='address') {
+      const addrType=parts[3];
+      if (addrType==='media') { state.voip.media=null; appendLine('success','  Media IP removed.'); }
+      else if (addrType==='signaling') { state.voip.signaling=null; appendLine('success','  Signaling IP removed.'); }
+      else { appendLine('error',`  % Unknown address type: ${addrType}`); }
+      return;
+    }
+    appendLine('error',`  % Unknown VoIP command: "${parts[0]}"`);
+    return;
+  }
+
+  // MG (H.248) interface
+  if (state.mode === 'config-mg') {
+    const id = state.currentIface.split(' ')[1];
+    if (p0 === 'digitmap' && parts[1]==='set' && parts[2]==='inner') {
+      const pattern=parts[3];
+      if (!pattern) { appendLine('error','  % Syntax: digitmap set inner <pattern>'); return; }
+      state.mgInterfaces[id] = state.mgInterfaces[id]||{};
+      state.mgInterfaces[id].digitmap = pattern;
+      appendLine('success',`  Digitmap (inner) set to: ${pattern}`);
+      return;
+    }
+    if (p0 === 'mg-software' && parts[1]==='parameter') {
+      const a=parts[2], b=parts[3];
+      if (!a) { appendLine('error','  % Syntax: mg-software parameter <a> [<b>]'); return; }
+      state.mgInterfaces[id] = state.mgInterfaces[id]||{};
+      state.mgInterfaces[id].swParam = b?`${a} ${b}`:a;
+      appendLine('success',`  MG software parameter set to: ${state.mgInterfaces[id].swParam}`);
+      return;
+    }
+    if (p0 === 'shutdown' && parts[1]==='force') {
+      state.mgInterfaces[id] = state.mgInterfaces[id]||{};
+      state.mgInterfaces[id].shutdown = true;
+      appendLine('success',`  MG interface h248 ${id} shut down (forced).`);
+      return;
+    }
+    appendLine('error',`  % Unknown H.248 command: "${parts[0]}"`);
+    return;
+  }
+
+  // VLAN interface
+  if (state.mode === 'config-if-vlanif') {
+    if (p0 === 'ip' && parts[1]==='address') {
+      const ip=parts[2], mask=parts[3];
+      if (!ip) { appendLine('error','  % Syntax: ip address <ip> <mask>'); return; }
+      if (!isValidIP(ip)) { appendLine('error',`  % Invalid IP: ${ip}`); return; }
+      const id = state.currentIface.split(' ')[1];
+      state.vlanifs[id] = {ip, mask: mask||'8'};
+      appendLine('success',`  IP address ${ip}/${mask||'8'} assigned to vlanif ${id}.`);
+      return;
+    }
+    appendLine('error',`  % Unknown vlanif command: "${parts[0]}"`);
+    return;
+  }
+
+  // ESL user mode
+  if (state.mode === 'config-esl-user') {
+    if (p0 === 'mgpstnuser' && parts[1]==='add') {
+      const port=parts[2], vlan=parts[3];
+      const terminalid = parseParamAfter(parts,'terminalid');
+      const telno = parseParamAfter(parts,'telno');
+      const priIdx = parts.findIndex(p=>p.toLowerCase()==='priority');
+      const priority = priIdx!==-1 ? parts[priIdx+1] : null;
+      const postIdx = parts.findIndex(p=>p.toLowerCase()==='potslinetype');
+      const postlinetype = postIdx!==-1 ? parts[postIdx+1] : null;
+      if (!port||!vlan||!terminalid||!telno) {
+        appendLine('error','  % Incomplete command.');
+        appendLine('dim','  Syntax: mgpstnuser add <port> <vlan> terminalid <id> telno <no> priority cat3 potslinetype del');
+        return;
+      }
+      state.pstnUsers.push({port, vlan, terminalid, telno, priority, postlinetype});
+      appendLine('success',`  PSTN user added: port=${port} vlan=${vlan} terminalid=${terminalid} telno=${telno}`);
+      return;
+    }
+    if (p0 === 'mgpstnuser' && parts[1]==='del') {
+      const port=parts[2];
+      const i = state.pstnUsers.findIndex(u=>u.port===port);
+      if (i===-1) { appendLine('error',`  % PSTN user on port ${port||'?'} not found.`); return; }
+      state.pstnUsers.splice(i,1);
+      appendLine('success',`  PSTN user on port ${port} removed.`);
+      return;
+    }
+    if (p0 === 'display') { doDisplay(parts); return; }
+    appendLine('error',`  % Unknown ESL command: "${parts[0]}"`);
+    return;
+  }
+
+  appendLine('error',`  % Unknown command in ${state.mode}: "${parts[0]}"`);
+}
+
+// ============================================================
+// SERVICE PORT
+// ============================================================
+function doServicePort(parts) {
+  const vid = parseParamAfter(parts,'vlan');
+  const adslPort = parseParamAfter(parts,'adsl');
+  const vpi = parseParamAfter(parts,'vpi');
+  const vci = parseParamAfter(parts,'vci');
+  const rxcttr = parseParamAfter(parts,'rx-cttr') || parseParamAfter(parts,'rx-cttx');
+  const txcttr = parseParamAfter(parts,'tx-cttr');
+
+  if (!vid||!adslPort||!vci) {
+    appendLine('error','  % Incomplete command.');
+    appendLine('dim','  Syntax: service-port vlan <vid> adsl <port> vpi <n> vci <n> single-service|multi-service ... rx-cttr <n> tx-cttr <n>');
+    return;
+  }
+  const vidN = parseInt(vid);
+  if (!state.vlans[vidN]) { appendLine('error',`  % VLAN ${vidN} does not exist.`); return; }
+
+  let serviceType = 'single';
+  let innerVlan = null;
+  const msIdx = parts.findIndex(p=>p.toLowerCase()==='multi-service');
+  if (msIdx !== -1) {
+    const next = (parts[msIdx+1]||'').toLowerCase();
+    if (next==='user-encap' && (parts[msIdx+2]||'').toLowerCase()==='pppoe') {
+      serviceType = 'multi-pppoe';
+    } else if (next==='user-vlan') {
+      serviceType = 'multi-uservlan';
+      innerVlan = parts[msIdx+2];
+    } else {
+      appendLine('error','  % Syntax: multi-service user-encap pppoe ... | multi-service user-vlan <inner>');
+      return;
+    }
+  }
+
+  const entry = {
+    index: state.spNextIdx++, vlan:vidN, adsl:adslPort,
+    vpi:parseInt(vpi)||0, vci:parseInt(vci),
+    rxcttr:parseInt(rxcttr)||0, txcttr:parseInt(txcttr)||0,
+    serviceType, innerVlan, stackingLabel:null
+  };
+  state.servicePorts.push(entry);
+  const modeStr = serviceType==='single' ? 'single-service' : (serviceType==='multi-pppoe' ? 'multi-service user-encap pppoe' : `multi-service user-vlan ${innerVlan}`);
+  appendLine('success',`  Service-port ${entry.index} created. VLAN=${vidN} Port=${adslPort} Mode=${modeStr}`);
+}
+
+// ============================================================
+// SIP COMMANDS
+// ============================================================
+function doSipCommand(parts) {
+  if (parts[1]==='user' && parts[2]==='add') {
+    const port=parts[3], vlan=parseInt(parts[4]);
+    const termid = parseParamAfter(parts,'terminalid');
+    const telno = parseParamAfter(parts,'telno');
+    if (!port||!vlan||!termid||!telno) {
+      appendLine('error','  % Incomplete. Syntax: sip user add <port> <vlan> terminalid <id> telno <no>');
+      return;
+    }
+    state.sipUsers.push({port, vlan, terminalid:termid, telno});
+    appendLine('success',`  SIP user added: port=${port} vlan=${vlan} terminalid=${termid} telno=${telno}`);
+    return;
+  }
+  appendLine('error','  % Unknown SIP command. Try: sip user add ...');
+}
+
+// ============================================================
+// DISPLAY COMMANDS
+// ============================================================
+function doDisplay(parts) {
+  const sub = (parts[1]||'').toLowerCase();
+  const sub2 = (parts[2]||'').toLowerCase();
+
+  if (sub==='vlan') {
+    const vid = parseInt(parts[2]);
+    if (!isNaN(vid)) displayVlanSingle(vid); else displayVlanAll();
+    return;
+  }
+  if (sub==='current-configuration') { displayCurrentConfig(); return; }
+  if (sub==='version') { displayVersion(); return; }
+  if (sub==='traffic' && sub2==='table') { displayTrafficTable(); return; }
+  if (sub==='service-port') { displayServicePort(parts); return; }
+  if (sub==='sip' && sub2==='user') { displaySipUsers(); return; }
+  if (sub==='voip') { displayVoip(); return; }
+  if (sub==='mg') { displayMg(); return; }
+  if (sub==='modem') { displayModem(parts[2]); return; }
+  if (sub==='line') {
+    if (sub2==='snr') { displayLineSnr(parts[3]); return; }
+    if (sub2==='bit') { displayLineBit(parts[4]); return; }
+  }
+  if (sub==='adsl') { displayAdsl(); return; }
+  if (sub==='board') { displayBoard(parts[2]); return; }
+  if (sub==='alarm') { displayAlarm(parts); return; }
+  if (sub==='terminal') {
+    if (sub2==='user-profile') { displayUserProfiles(); return; }
+    if (sub2==='user') { displayTerminalUsers(); return; }
+  }
+  if (sub==='mgpstnuser') { displayPstnUsers(parts.slice(2)); return; }
+  if (sub==='vlanif') { displayVlanif(parts[2]); return; }
+  if (sub==='ip' && sub2==='routing-table') { displayRoutes(); return; }
+
+  appendLine('error',`  % Unknown display target: "${sub}"`);
+}
+
+function displayVlanSingle(vid) {
+  if (!state.vlans[vid]) { appendLine('error',`  % VLAN ${vid} does not exist.`); return; }
+  const v = state.vlans[vid];
+  appendLines('table-header',['','  VLAN Configuration']);
+  appendLine('dim','  ─────────────────────────────────────────');
+  appendLine('output',`  VLAN ID        : ${vid}`);
+  appendLine('output',`  Type           : ${v.type||'standard'}`);
+  appendLine('output',`  Attribute      : ${v.attrib||'-'}`);
+  appendLine('output',`  Description    : ${v.desc||'-'}`);
+  appendLine('output',`  State          : Active`);
+  appendLine('output',`  Upstream Port  : ${v.port ? v.port+'/'+v.portIdx : 'Not assigned'}`);
+  appendLine('output',`  Service Ports  : ${state.servicePorts.filter(s=>s.vlan===vid).length}`);
+  appendLine('dim','');
+}
+
+function displayVlanAll() {
+  const vids = Object.keys(state.vlans);
+  if (!vids.length) { appendLine('warn','  No VLANs configured.'); return; }
+  appendLines('table-header',['','  VLAN Summary Table']);
+  appendLine('dim','  ────────────────────────────────────────────────────────');
+  appendLine('table-header','  VID    Type        Attrib     Port          State');
+  appendLine('dim','  ────────────────────────────────────────────────────────');
+  vids.forEach(vid => {
+    const v = state.vlans[vid];
+    const portStr = v.port ? `${v.port}/${v.portIdx}` : 'Unassigned';
+    appendLine('output',`  ${String(vid).padEnd(6)} ${String(v.type||'standard').padEnd(11)} ${String(v.attrib||'-').padEnd(10)} ${portStr.padEnd(13)} Active`);
+  });
+  appendLine('dim',`  Total: ${vids.length} VLAN(s)\n`);
+}
+
+function displayTrafficTable() {
+  const keys = Object.keys(state.trafficTables);
+  if (!keys.length) { appendLine('warn','  No traffic tables configured.'); return; }
+  appendLines('table-header',['','  Traffic Table Configuration']);
+  appendLine('dim','  ──────────────────────────────────────────────────────');
+  appendLine('table-header','  Index  CIR(kbps)  Priority  Policy');
+  appendLine('dim','  ──────────────────────────────────────────────────────');
+  keys.forEach(k => {
+    const t = state.trafficTables[k];
+    appendLine('output',`  ${String(k).padEnd(6)} ${String(t.cir).padEnd(10)} ${String(t.priority).padEnd(9)} ${t.policy}`);
+  });
+  appendLine('dim',`  Total: ${keys.length} table(s)\n`);
+}
+
+function displayServicePort(parts) {
+  // display service-port port <port>  OR  display service-port all  OR display service-port
+  let sps = state.servicePorts;
+  if (parts && parts[2]==='port' && parts[3]) {
+    sps = state.servicePorts.filter(sp => sp.adsl===parts[3] || sp.adsl.startsWith(parts[3]));
+  }
+  if (!sps.length) { appendLine('warn','  No service-ports configured.'); return; }
+  appendLines('table-header',['','  Service-Port Configuration']);
+  appendLine('dim','  ─────────────────────────────────────────────────────────────────────────────────');
+  appendLine('table-header','  Idx  VLAN  ADSL Port        VPI  VCI   RX    TX    Mode                  Label');
+  appendLine('dim','  ─────────────────────────────────────────────────────────────────────────────────');
+  sps.forEach(sp => {
+    const mode = sp.serviceType==='single' ? 'single-service' : (sp.serviceType==='multi-pppoe' ? 'multi-svc pppoe' : `multi-svc vlan ${sp.innerVlan}`);
+    appendLine('output',`  ${String(sp.index).padEnd(4)} ${String(sp.vlan).padEnd(5)} ${String(sp.adsl).padEnd(16)} ${String(sp.vpi).padEnd(4)} ${String(sp.vci).padEnd(5)} ${String(sp.rxcttr).padEnd(5)} ${String(sp.txcttr).padEnd(5)} ${mode.padEnd(21)} ${sp.stackingLabel||'-'}`);
+  });
+  appendLine('dim',`  Total: ${sps.length} port(s)\n`);
+}
+
+function displaySipUsers() {
+  if (!state.sipUsers.length) { appendLine('warn','  No SIP users configured.'); return; }
+  appendLines('table-header',['','  SIP User Table']);
+  appendLine('dim','  ────────────────────────────────────────────────────────');
+  appendLine('table-header','  Port           VLAN  Terminal-ID  Tel No    State');
+  appendLine('dim','  ────────────────────────────────────────────────────────');
+  state.sipUsers.forEach(u => {
+    appendLine('output',`  ${String(u.port).padEnd(14)} ${String(u.vlan).padEnd(5)} ${String(u.terminalid).padEnd(12)} ${String(u.telno).padEnd(9)} Registered`);
+  });
+  appendLine('dim',`  Total: ${state.sipUsers.length} user(s)\n`);
+}
+
+function displayVoip() {
+  appendLines('table-header',['','  VoIP Interface Configuration']);
+  appendLine('dim','  ─────────────────────────────────────');
+  appendLine('output',`  Media IP     : ${state.voip.media||'Not set'}`);
+  appendLine('output',`  Signaling IP : ${state.voip.signaling||'Not set'}`);
+  appendLine('output',`  Protocol     : H.248`);
+  appendLine('output',`  State        : ${state.voip.media ? 'UP' : 'DOWN'}`);
+  appendLine('dim','');
+}
+
+function displayMg() {
+  const ids = Object.keys(state.mgInterfaces);
+  if (!ids.length) { appendLine('warn','  No MG interfaces configured.'); return; }
+  appendLines('table-header',['','  MG Interface Table']);
+  appendLine('dim','  ──────────────────────────────────────────────────────────');
+  appendLine('table-header','  ID    Digitmap    SW-Param   State');
+  appendLine('dim','  ──────────────────────────────────────────────────────────');
+  ids.forEach(id => {
+    const mg = state.mgInterfaces[id];
+    const st = mg.shutdown ? 'DOWN' : 'Active';
+    appendLine('output',`  ${String(id).padEnd(5)} ${String(mg.digitmap||'—').padEnd(11)} ${String(mg.swParam||'—').padEnd(10)} ${st}`);
+  });
+  appendLine('dim','');
+}
+
+function displayModem(sub) {
+  // display modem atu-c or display modem atu-r
+  const type = sub ? sub.toLowerCase() : 'atu-c';
+  appendLines('table-header',['',`  Modem Status (${type.toUpperCase()})`]);
+  appendLine('dim','  ──────────────────────────────────────────────────────────────');
+  if (type==='atu-c') {
+    appendLine('output',`  ATU-C (DSLAM Side)`);
+    appendLine('output',`  Vendor ID       : HUAW`);
+    appendLine('output',`  Version         : 0x11`);
+    appendLine('output',`  DS Max Rate     : 8192 kbps`);
+    appendLine('output',`  US Max Rate     : 640 kbps`);
+    appendLine('output',`  DS Attain Rate  : 7616 kbps`);
+    appendLine('output',`  US Attain Rate  : 608 kbps`);
+    appendLine('output',`  DS SNR Margin   : ${(Math.random()*4+20).toFixed(1)} dB`);
+    appendLine('output',`  DS Line Attn    : ${(Math.random()*5+18).toFixed(1)} dB`);
+  } else {
+    appendLine('output',`  ATU-R (Modem/CPE Side)`);
+    appendLine('output',`  Vendor ID       : ZTEC`);
+    appendLine('output',`  Version         : 0x10`);
+    appendLine('output',`  DS Max Rate     : 8192 kbps`);
+    appendLine('output',`  US Max Rate     : 640 kbps`);
+    appendLine('output',`  DS SNR Margin   : ${(Math.random()*4+18).toFixed(1)} dB`);
+    appendLine('output',`  US SNR Margin   : ${(Math.random()*3+12).toFixed(1)} dB`);
+  }
+  appendLine('dim','');
+}
+
+function displayLineSnr(portN) {
+  const slot = state.currentIface ? state.currentIface.split(' ')[1] : '0/3';
+  const fullPort = portN ? slot+'/'+portN : slot+'/0';
+  appendLines('table-header',['',`  Line SNR — Port ${fullPort}`]);
+  appendLine('dim','  ─────────────────────────────────────────────────────────────────');
+  const bins = [];
+  for (let i=0;i<16;i++) bins.push(Math.floor(Math.random()*8+14));
+  appendLine('output','  SNR per tone (dB):');
+  appendLine('output','  ' + bins.map((v,i)=>`[${i}]${v}`).join(' '));
+  appendLine('output',`  Avg SNR: ${(bins.reduce((a,b)=>a+b,0)/bins.length).toFixed(1)} dB`);
+  appendLine('output',`  Attenuation: ${(Math.random()*5+15).toFixed(1)} dB`);
+  appendLine('output',`  Output Power: ${(Math.random()*2+10).toFixed(1)} dBm`);
+  appendLine('dim','');
+}
+
+function displayLineBit(portN) {
+  const slot = state.currentIface ? state.currentIface.split(' ')[1] : '0/3';
+  const fullPort = portN ? slot+'/'+portN : slot+'/0';
+  appendLine('table-header',`  Line Bit Allocation — Port ${fullPort}`);
+  appendLine('dim','  ────────────────────────────────────────────────────────────────');
+  const alloc = [];
+  for (let i=0;i<32;i++) alloc.push(Math.floor(Math.random()*7+1));
+  appendLine('output','  Bit allocation per bin:');
+  for (let r=0;r<4;r++) {
+    const row = alloc.slice(r*8,(r+1)*8).map((v,i)=>`Bin[${r*8+i}]=${v}`).join('  ');
+    appendLine('output','  '+row);
+  }
+  appendLine('output',`  Avg bits/bin: ${(alloc.reduce((a,b)=>a+b,0)/alloc.length).toFixed(2)}`);
+  appendLine('dim','');
+}
+
+function displayAdsl() {
+  const ports = Object.keys(state.adslActivations);
+  if (!ports.length) { appendLine('warn','  No active ADSL ports.'); return; }
+  appendLine('table-header','  ADSL Port Status');
+  appendLine('dim','  ──────────────────────────────────────────');
+  ports.forEach(p => {
+    const a = state.adslActivations[p];
+    appendLine('output',`  Port ${p} — State: ${a.active?'UP':'DOWN'} — Profile: ${a.profile}`);
+  });
+  appendLine('dim','');
+}
+
+function displayBoard(slotArg) {
+  appendLines('table-header',['',`  Board Status — Slot: ${slotArg||'0'}`]);
+  appendLine('dim','  ───────────────────────────────────────────────────────');
+  appendLine('table-header','  Slot       Board Type       Status    Ports');
+  appendLine('dim','  ───────────────────────────────────────────────────────');
+
+  const defaultBoards = {
+    '0/0': {type:'H80MCUA', status:'Normal', ports:0},
+    '0/1': {type:'H80MCUA', status:'Normal', ports:0},
+    '0/3': {type:'H83DABE', status:'Normal', ports:32},
+    '0/4': {type:'H83DABE', status:'Normal', ports:32},
+    '0/5': {type:'H83DABE', status:'Normal', ports:32},
+    '0/9': {type:'H80GPUE', status:'Normal', ports:8},
+    '0/10':{type:'H80GPUE', status:'Normal', ports:8},
+  };
+
+  if (!slotArg || slotArg === '0') {
+    // show all boards in chassis
+    const allSlots = {...defaultBoards};
+    Object.entries(state.boards).forEach(([k,v]) => { allSlots[k] = {type:v, status:'Normal', ports:'-'}; });
+    Object.entries(allSlots).sort().forEach(([slot, b]) => {
+      appendLine('output',`  ${slot.padEnd(10)} ${b.type.padEnd(16)} ${b.status.padEnd(9)} ${b.ports}`);
+    });
+  } else {
+    const def = defaultBoards[slotArg];
+    const custom = state.boards[slotArg];
+    if (def) {
+      appendLine('output',`  ${slotArg.padEnd(10)} ${def.type.padEnd(16)} ${def.status.padEnd(9)} ${def.ports}`);
+    } else if (custom) {
+      appendLine('output',`  ${slotArg.padEnd(10)} ${custom.padEnd(16)} Normal    -`);
+    } else {
+      appendLine('output',`  ${slotArg.padEnd(10)} Empty            —         —`);
+    }
+  }
+  appendLine('dim','');
+}
+
+function displayAlarm(parts) {
+  // display alarm active all detail
+  // display alarm list alarmclass fault 1 5
+  // display alarm list alarmtype service 4 5
+  const sub = (parts[2]||'').toLowerCase();
+  if (sub==='active') {
+    appendLines('table-header',['','  Active Alarm Table']);
+    appendLine('dim','  ──────────────────────────────────────────────────────────────────');
+    appendLine('table-header','  AlarmID  Severity  AlarmClass  Source              Description');
+    appendLine('dim','  ──────────────────────────────────────────────────────────────────');
+    appendLine('output','  0001     Major     Fault       Board 0/3           ADSL Line Down');
+    appendLine('output','  0002     Minor     Service     Port 0/3/4          Port Unconfigured');
+    appendLine('output','  0003     Warning   Perf        Board 0/9           GE Port Degraded');
+    appendLine('dim','  Total active alarms: 3\n');
+    return;
+  }
+  if (sub==='list') {
+    const classifier = (parts[3]||'').toLowerCase();
+    const classval = (parts[4]||'').toLowerCase();
+    const from = parts[5]||'1', to = parts[6]||'5';
+    appendLines('table-header',['',`  Alarm List [${classifier}=${classval}] entries ${from}-${to}`]);
+    appendLine('dim','  ──────────────────────────────────────────────────────────────────');
+    appendLine('table-header','  Seq  AlarmID  Time                Severity  Description');
+    appendLine('dim','  ──────────────────────────────────────────────────────────────────');
+    for (let i=parseInt(from);i<=parseInt(to);i++) {
+      appendLine('output',`  ${String(i).padEnd(4)} ${String(1000+i).padEnd(8)} 2024-01-0${i} 09:00:00  ${i%2===0?'Major':'Minor'}     Alarm record ${i}`);
+    }
+    appendLine('dim','');
+    return;
+  }
+  appendLine('warn','  % Syntax: display alarm active all detail | display alarm list alarmclass|alarmtype <class> <from> <to>');
+}
+
+function displayUserProfiles() {
+  const keys = Object.keys(state.userProfiles);
+  appendLines('table-header',['','  Terminal User Profile Table']);
+  appendLine('dim','  ─────────────────────────────────────────────────────────────');
+  appendLine('table-header','  Profile Name   Idle  Reenter  Login Window');
+  appendLine('dim','  ─────────────────────────────────────────────────────────────');
+  if (!keys.length) { appendLine('output','  (no profiles)'); }
+  else keys.forEach(k => {
+    const p = state.userProfiles[k];
+    appendLine('output',`  ${String(k).padEnd(14)} ${String(p.idle).padEnd(5)} ${String(p.reenter).padEnd(8)} ${p.start} – ${p.end}`);
+  });
+  appendLine('dim',`  Total: ${keys.length} profile(s)\n`);
+}
+
+function displayTerminalUsers() {
+  const keys = Object.keys(state.terminalUsers);
+  appendLines('table-header',['','  Terminal User Table']);
+  appendLine('dim','  ──────────────────────────────────────────────────────────');
+  appendLine('table-header','  Username       Profile         Level  State');
+  appendLine('dim','  ──────────────────────────────────────────────────────────');
+  if (!keys.length) { appendLine('output','  (no users)'); }
+  else keys.forEach(k => {
+    const u = state.terminalUsers[k];
+    appendLine('output',`  ${String(k).padEnd(14)} ${String(u.profile).padEnd(15)} ${String(u.level).padEnd(6)} Active`);
+  });
+  appendLine('dim',`  Total: ${keys.length} user(s)\n`);
+}
+
+function displayPstnUsers(ports) {
+  let users = state.pstnUsers;
+  if (ports.length > 0 && ports[0]) {
+    users = state.pstnUsers.filter(u => ports.includes(u.port));
+  }
+  appendLines('table-header',['','  PSTN User Table']);
+  appendLine('dim','  ─────────────────────────────────────────────────────────────────');
+  appendLine('table-header','  Port       VLAN  Terminal-ID  Tel No  Priority  State');
+  appendLine('dim','  ─────────────────────────────────────────────────────────────────');
+  if (!users.length) appendLine('output','  (no PSTN users)');
+  else users.forEach(u => {
+    appendLine('output',`  ${String(u.port).padEnd(10)} ${String(u.vlan).padEnd(5)} ${String(u.terminalid).padEnd(12)} ${String(u.telno).padEnd(7)} ${String(u.priority||'—').padEnd(9)} Active`);
+  });
+  appendLine('dim','');
+}
+
+function displayVlanif(id) {
+  if (!id) { appendLine('warn','  % Specify vlanif ID.'); return; }
+  const v = state.vlanifs[id];
+  if (!v) { appendLine('warn',`  % No vlanif ${id} configured.`); return; }
+  appendLine('table-header',`  Interface vlanif${id}`);
+  appendLine('output',`  IP Address : ${v.ip}/${v.mask}`);
+  appendLine('output',`  State      : Up`);
+  appendLine('dim','');
+}
+
+function displayRoutes() {
+  appendLines('table-header',['','  IP Routing Table']);
+  appendLine('dim','  ────────────────────────────────────────────────────────');
+  appendLine('table-header','  Destination     Mask  Gateway      Type');
+  appendLine('dim','  ────────────────────────────────────────────────────────');
+  if (!state.routes.length) appendLine('output','  (no static routes)');
+  else state.routes.forEach(r => {
+    appendLine('output',`  ${String(r.dest).padEnd(15)} ${String(r.mask).padEnd(5)} ${String(r.gateway).padEnd(12)} Static`);
+  });
+  appendLine('dim','');
+}
+
+function displayCurrentConfig() {
+  appendLines('table-header',['','  Running Configuration (summary)']);
+  appendLine('dim','  ─────────────────────────────────────────────');
+  if (state.idleTimeout) appendLine('output',`  Idle-timeout ${state.idleTimeout}`);
+  Object.entries(state.vlans).forEach(([vid,v]) => {
+    appendLine('output',`  vlan ${vid} ${v.type||'standard'}`);
+    if (v.attrib) appendLine('output',`  vlan attrib ${vid} ${v.attrib}`);
+    if (v.desc) appendLine('output',`  vlan desc ${vid} description ${v.desc}`);
+    if (v.port) appendLine('output',`  port vlan ${vid} ${v.port} ${v.portIdx}`);
+  });
+  Object.entries(state.trafficTables).forEach(([k,t]) => {
+    appendLine('output',`  traffic table ip index ${k} cir ${t.cir} priority ${t.priority} priority-policy local-setting`);
+  });
+  state.servicePorts.forEach(sp => {
+    appendLine('output',`  service-port ${sp.index} vlan ${sp.vlan} adsl ${sp.adsl} vpi ${sp.vpi} vci ${sp.vci}`);
+  });
+  appendLine('dim','');
+}
+
+function displayVersion() {
+  appendLine('bold','  Huawei MA5600T SmartAX');
+  appendLine('output','  Software Version : MA5600V8R017C10');
+  appendLine('output','  Hardware Version : Ver.B');
+  appendLine('output','  FPGA Version     : 0x0011');
+  appendLine('output','  Uptime           : 15 days 3 hours');
+  appendLine('dim','');
+}
+
+// ============================================================
+// HELPERS
+// ============================================================
+function parseParamAfter(parts, keyword) {
+  const i = parts.findIndex(p=>p.toLowerCase()===keyword.toLowerCase());
+  if (i===-1||i>=parts.length-1) return null;
+  return parts[i+1];
+}
+function isValidIP(ip) {
+  return /^(\d{1,3}\.){3}\d{1,3}$/.test(ip) && ip.split('.').every(o=>parseInt(o)<=255);
+}
+
+function doSave() {
+  appendLine('success','  Saving configuration...');
+  setTimeout(()=>appendLine('success','  Configuration saved successfully.'),600);
+}
+
+// ============================================================
+// HELP
+// ============================================================
+function showHelp() {
+  appendLines('info',[
+    '',
+    '  Available commands (context-sensitive):',
+    '  ─────────────────────────────────────────────────────',
+    '  Idle-timeout <n>          — Set session idle timeout',
+    '  enable                    — Enter privileged mode',
+    '  config                    — Enter config mode',
+    '  vlan <id> smart|standard  — Create VLAN',
+    '  vlan attrib <id> stacking|q-in-q',
+    '  vlan desc <id> description <text>',
+    '  port vlan <id> <port> <idx>',
+    '  service-port vlan <id> adsl <port> ...',
+    '  stacking label service-port <idx> <vlan>',
+    '  adsl line profile add <n>',
+    '  interface adsl|h248|vlanif|voip <id>',
+    '  traffic table ip index <n> cir <n> ...',
+    '  board add|delete <slot> [<type>]',
+    '  terminal user-profile add <name> ...',
+    '  terminal user name <user> <pass> ...',
+    '  ip route-static <dest> <mask> <gw>',
+    '  voip                      — VoIP config mode',
+    '  esl user                  — ESL user mode',
+    '  mgpstnuser add|del <port> ...',
+    '  display <target>          — Show info',
+    '  quit / return             — Go up one level',
+    '  save                      — Save config',
+    '  check                     — Show correction',
+    '',
+  ]);
+}
+
+// ============================================================
+// CORRECTION / SCORING
+// ============================================================
+function openCorrection() {
+  if (!currentExercise) {
+    appendLine('warn','  No exercise active. Select a TP exercise from the menu.');
+    return;
+  }
+  const ex = currentExercise;
+  let html = `<div class="modal-task"><b>Exercise:</b> ${ex.title}</div>`;
+  html += '<div id="correction-box">';
+
+  let correct = 0;
+  ex.expected.forEach((exp, i) => {
+    const student = exerciseLog.find(l => l.toLowerCase().trim() === exp.toLowerCase().trim());
+    if (student) {
+      correct++;
+      html += `<div class="corr-ok">✓ [${i+1}] ${exp}</div>`;
+    } else {
+      html += `<div class="corr-miss">✗ [${i+1}] Expected: ${exp}</div>`;
+      const expParts = exp.toLowerCase().split(' ');
+      const close = exerciseLog.find(l => {
+        const lp = l.toLowerCase().split(' ');
+        return lp[0]===expParts[0] && (expParts[1] && lp[1]===expParts[1]);
+      });
+      if (close) html += `<div class="corr-extra">&nbsp;&nbsp;&nbsp;→ You typed: ${close}</div>`;
+    }
+  });
+
+  const extras = exerciseLog.filter(l => !ex.expected.some(e=>e.toLowerCase().trim()===l.toLowerCase().trim()));
+  if (extras.length) {
+    html += `<div style="color:var(--amber);margin-top:6px;">Extra commands typed:</div>`;
+    extras.forEach(e => { html += `<div class="corr-extra">  + ${e}</div>`; });
+  }
+  html += '</div>';
+
+  score = correct;
+  scoreTotal = ex.expected.length;
+  const pct = Math.round((correct/ex.expected.length)*100);
+  const color = pct>=80?'#00ff99':pct>=50?'#ffb000':'#ff3333';
+  html += `<div style="text-align:center;margin-top:12px;font-family:'Orbitron',monospace;font-size:14px;color:${color};">
+    SCORE: ${correct} / ${ex.expected.length} (${pct}%)
+  </div>`;
+
+  document.getElementById('modal-title').textContent = '✓ CORRECTION — ' + ex.title;
+  document.getElementById('modal-body').innerHTML = html;
+  document.getElementById('modal-start-btn').style.display = 'none';
+  document.getElementById('modal-overlay').classList.add('show');
+  document.getElementById('score-num').textContent = score;
+  document.getElementById('score-total').textContent = scoreTotal;
+
+  // color score
+  const sn = document.getElementById('score-num');
+  sn.style.color = color;
+
+  updateState();
+}
+
+function closeModal() {
+  document.getElementById('modal-overlay').classList.remove('show');
+  document.getElementById('modal-start-btn').style.display = '';
+}
+
+// ============================================================
+// STATE UPDATE
+// ============================================================
+function updateState() {
+  const sv = document.getElementById('state-vlans');
+  const vids = Object.keys(state.vlans);
+  sv.innerHTML = vids.length ? vids.map(v=>`<div class="state-item">VLAN <span>${v}</span> [${state.vlans[v].type}] ${state.vlans[v].attrib?'['+state.vlans[v].attrib+']':''}</div>`).join('') : '<div class="state-item">— none —</div>';
+
+  const st = document.getElementById('state-traffic');
+  const tks = Object.keys(state.trafficTables);
+  st.innerHTML = tks.length ? tks.map(k=>`<div class="state-item">Idx <span>${k}</span> CIR=${state.trafficTables[k].cir}kbps</div>`).join('') : '<div class="state-item">— none —</div>';
+
+  const ss = document.getElementById('state-svcport');
+  ss.innerHTML = state.servicePorts.length ? state.servicePorts.map(s=>`<div class="state-item">#<span>${s.index}</span> VLAN=${s.vlan} ${s.adsl}</div>`).join('') : '<div class="state-item">— none —</div>';
+
+  const si = document.getElementById('state-sip');
+  si.innerHTML = state.sipUsers.length ? state.sipUsers.map(u=>`<div class="state-item"><span>${u.port}</span> telno=${u.telno}</div>`).join('') : '<div class="state-item">— none —</div>';
+
+  const sa = document.getElementById('state-adsl');
+  const apk = Object.keys(state.adslProfiles);
+  sa.innerHTML = apk.length ? apk.map(k=>`<div class="state-item">Profile <span>${k}</span></div>`).join('') : '<div class="state-item">— none —</div>';
+
+  const vo = document.getElementById('state-voip');
+  vo.innerHTML = (state.voip.media||state.voip.signaling) ?
+    `<div class="state-item">Media: <span>${state.voip.media||'—'}</span></div><div class="state-item">Sig: <span>${state.voip.signaling||'—'}</span></div>` :
+    '<div class="state-item">— not configured —</div>';
+
+  const sp = document.getElementById('state-profiles');
+  const pk = Object.keys(state.userProfiles);
+  sp.innerHTML = pk.length ? pk.map(k=>`<div class="state-item">Profile <span>${k}</span></div>`).join('') : '<div class="state-item">— none —</div>';
+
+  const su = document.getElementById('state-users');
+  const uk = Object.keys(state.terminalUsers);
+  su.innerHTML = uk.length ? uk.map(k=>`<div class="state-item">User <span>${k}</span> lvl=${state.terminalUsers[k].level}</div>`).join('') : '<div class="state-item">— none —</div>';
+
+  const sb = document.getElementById('state-boards');
+  const bk = Object.keys(state.boards);
+  sb.innerHTML = bk.length ? bk.map(k=>`<div class="state-item">Slot <span>${k}</span>: ${state.boards[k]}</div>`).join('') : '<div class="state-item">— none —</div>';
+
+  const smg = document.getElementById('state-mg');
+  const mgk = Object.keys(state.mgInterfaces);
+  smg.innerHTML = mgk.length ? mgk.map(k=>`<div class="state-item">h248 <span>${k}</span> ${state.mgInterfaces[k].shutdown?'[DOWN]':''}</div>`).join('') : '<div class="state-item">— none —</div>';
+
+  const spstn = document.getElementById('state-pstn');
+  spstn.innerHTML = state.pstnUsers.length ? state.pstnUsers.map(u=>`<div class="state-item"><span>${u.port}</span> telno=${u.telno}</div>`).join('') : '<div class="state-item">— none —</div>';
+
+  const sroutes = document.getElementById('state-routes');
+  sroutes.innerHTML = state.routes.length ? state.routes.map(r=>`<div class="state-item"><span>${r.dest}</span>→${r.gateway}</div>`).join('') : '<div class="state-item">— none —</div>';
+}
+
+// ============================================================
+// AUTOCOMPLETE
+// ============================================================
+const allCommands = [
+  'Idle-timeout','enable','config','quit','return','save','clear','help','check',
+  'vlan','vlan attrib','vlan desc','port vlan','undo vlan','undo port vlan',
+  'service-port vlan','undo service-port','stacking label service-port',
+  'traffic table ip index','undo traffic table ip index',
+  'adsl line profile add','undo adsl line profile add',
+  'interface adsl','interface h248','interface vlanif','interface voip',
+  'board add','board delete',
+  'activate','deactivate',
+  'ip address media','ip address signaling','ip address',
+  'ip route-static','undo ip route-static',
+  'voip','esl user',
+  'mgpstnuser add','mgpstnuser del',
+  'digitmap set inner','mg-software parameter','shutdown force',
+  'undo interface h248','undo interface vlanif',
+  'undo ip address media','undo ip address signaling',
+  'terminal user-profile add','terminal user-profile delete',
+  'terminal user name',
+  'display vlan','display board','display service-port','display service-port port',
+  'display traffic table ip','display alarm active all detail',
+  'display alarm list alarmclass fault','display alarm list alarmtype service',
+  'display terminal user-profile all','display terminal user',
+  'display mgpstnuser','display modem atu-c','display modem atu-r',
+  'display line snr','display line bit allocation',
+  'display voip','display mg','display sip user','display adsl',
+  'display current-configuration','display version',
+  'sip user add','undo sip user',
+];
+
+function getAC(val) {
+  if (!val) return [];
+  return allCommands.filter(c=>c.toLowerCase().startsWith(val.toLowerCase())).slice(0,10);
+}
+function showAC(items) {
+  const box = document.getElementById('autocomplete');
+  if (!items.length) { box.style.display='none'; return; }
+  box.innerHTML = items.map((c,i)=>`<div class="ac-item" data-idx="${i}">${c}</div>`).join('');
+  box.style.display='block';
+  acItems = items; acSelected = -1;
+  box.querySelectorAll('.ac-item').forEach(el => {
+    el.addEventListener('mousedown', e => {
+      document.getElementById('cmd-input').value = e.target.textContent + ' ';
+      hideAC();
+      document.getElementById('cmd-input').focus();
+    });
+  });
+}
+function hideAC() {
+  document.getElementById('autocomplete').style.display='none';
+  acItems=[]; acSelected=-1;
+}
+
+// ============================================================
+// INPUT EVENT HANDLING
+// ============================================================
+const input = document.getElementById('cmd-input');
+
+input.addEventListener('input', () => {
+  if (input.type === 'password') return;
+  showAC(getAC(input.value));
+});
+
+input.addEventListener('keydown', e => {
+  if (e.key === 'Tab') {
+    e.preventDefault();
+    if (input.type==='password') return;
+    if (acItems.length>0) { input.value = acItems[acSelected>=0?acSelected:0]+' '; hideAC(); }
+    else {
+      const ac = getAC(input.value);
+      if (ac.length===1) { input.value=ac[0]+' '; hideAC(); }
+      else if (ac.length>1) showAC(ac);
+    }
+    return;
+  }
+  if (e.key==='ArrowUp') {
+    e.preventDefault();
+    if (acItems.length) { acSelected=Math.max(0,acSelected-1); document.querySelectorAll('.ac-item').forEach((el,i)=>el.classList.toggle('selected',i===acSelected)); return; }
+    if (state.history.length) { state.histIdx=Math.max(0,state.histIdx===-1?state.history.length-1:state.histIdx-1); input.value=state.history[state.histIdx]; }
+    return;
+  }
+  if (e.key==='ArrowDown') {
+    e.preventDefault();
+    if (acItems.length) { acSelected=Math.min(acItems.length-1,acSelected+1); document.querySelectorAll('.ac-item').forEach((el,i)=>el.classList.toggle('selected',i===acSelected)); return; }
+    if (state.history.length) { if (state.histIdx===-1) return; state.histIdx++; if (state.histIdx>=state.history.length){state.histIdx=-1;input.value='';} else input.value=state.history[state.histIdx]; }
+    return;
+  }
+  if (e.key==='Escape') { hideAC(); return; }
+  if (e.key==='Enter') {
+    hideAC();
+    const cmd = input.value;
+    input.value = '';
+    state.histIdx = -1;
+    // Only add to history if not password
+    if (cmd.trim() && input.type !== 'password') state.history.push(cmd.trim());
+    processCommand(cmd);
+    updatePrompt();
+    return;
+  }
+});
+
+// ============================================================
+// UI CONTROLS
+// ============================================================
+function togglePanel() {
+  panelVisible = !panelVisible;
+  document.getElementById('sidepanel').classList.toggle('collapsed', !panelVisible);
+}
+function toggleHints() {
+  hintsVisible = !hintsVisible;
+  const hb = document.getElementById('hints-box');
+  hb.style.display = hintsVisible ? 'block' : 'none';
+  if (hintsVisible) switchTab('cheat');
+}
+function switchTab(tab) {
+  activeTab = tab;
+  const tabs = ['cheat','state','exercise'];
+  document.querySelectorAll('.ptab').forEach((el,i)=>el.classList.toggle('active',tabs[i]===tab));
+  document.getElementById('tab-cheat').style.display = tab==='cheat'?'block':'none';
+  document.getElementById('tab-state').style.display = tab==='state'?'block':'none';
+  document.getElementById('tab-exercise').style.display = tab==='exercise'?'block':'none';
+}
+function insertCmd(cmd) { input.value=cmd; input.focus(); hideAC(); }
+
+function resetAll() {
+  if (!confirm('Reset all configuration and terminal? This cannot be undone.')) return;
+  // Reset state
+  Object.assign(state, {
+    loginPhase:'username', loginAttempts:0, loginUsername:'', loggedIn:false, enableMode:false,
+    mode:'user', currentIface:null,
+    vlans:{}, trafficTables:{}, servicePorts:[], sipUsers:[],
+    adslProfiles:{}, adslActivations:{},
+    voip:{media:null,signaling:null}, mgInterfaces:{},
+    idleTimeout:null, boards:{}, userProfiles:{}, terminalUsers:{},
+    vlanifs:{}, routes:[], pstnUsers:{}, voipMg:{msan:null,passerelle:null,softswitch:null,port:null},
+    history:[], histIdx:-1, cmdCount:0, spNextIdx:1,
+  });
+  state.pstnUsers = [];
+  currentExercise=null; exerciseLog=[]; score=0; scoreTotal=0;
+  document.getElementById('score-num').textContent='0';
+  document.getElementById('score-total').textContent='0';
+  document.getElementById('exercise-box').innerHTML='<div class="ex-title">⬡ NO EXERCISE ACTIVE</div><div style="color:var(--text-dim);font-size:10px;">Select a TP exercise from the top menu.</div>';
+  document.querySelectorAll('.tp-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('creds-bar').classList.remove('visible');
+  updateState();
+  updatePrompt();
+  boot();
+}
+
+// ============================================================
+// CLOCK
+// ============================================================
+function updateClock() {
+  const t = new Date().toLocaleTimeString();
+  document.getElementById('clock').textContent = t;
+  document.getElementById('clock2').textContent = t;
+}
+setInterval(updateClock,1000);
+updateClock();
+
+// ============================================================
+// INIT
+// ============================================================
+window.addEventListener('load', () => {
+  boot();
+  input.focus();
+});
+
+document.getElementById('modal-overlay').addEventListener('click', e => {
+  if (e.target===document.getElementById('modal-overlay')) closeModal();
+});
+
+document.getElementById('terminal-wrap').addEventListener('click', () => input.focus());
+</script>
+</body>
+</html>
